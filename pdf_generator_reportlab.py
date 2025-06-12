@@ -33,7 +33,7 @@ def generate_pdf_from_data(form_data, output_path):
         label_style = ParagraphStyle(
             'Label',
             parent=styles["Normal"],
-            fontName=\'Helvetica-Bold\',
+            fontName='Helvetica-Bold',
             fontSize=10,
             leading=12
         )
@@ -41,7 +41,7 @@ def generate_pdf_from_data(form_data, output_path):
         value_style = ParagraphStyle(
             'Value',
             parent=styles["Normal"],
-            fontName=\'Helvetica\',
+            fontName='Helvetica',
             fontSize=10,
             leading=12,
             leftIndent=20
@@ -159,12 +159,12 @@ def generate_pdf_from_data(form_data, output_path):
             
             t = Table(dependents_data, colWidths=[2*inch, 1.5*inch, 2*inch])
             t.setStyle(TableStyle([
-                (\'BACKGROUND\', (0, 0), (-1, 0), colors.lightgrey),
-                (\'TEXTCOLOR\', (0, 0), (-1, 0), colors.black),
-                (\'ALIGN\', (0, 0), (-1, -1), \'CENTER\'),
-                (\'FONTNAME\', (0, 0), (-1, 0), \'Helvetica-Bold\'),
-                (\'BOTTOMPADDING\', (0, 0), (-1, 0), 12),
-                (\'GRID\', (0, 0), (-1, -1), 1, colors.black)
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             content.append(t)
             content.append(Spacer(1, 0.2*inch))
@@ -181,18 +181,18 @@ def generate_pdf_from_data(form_data, output_path):
                     ben.get("name", ""),
                     ben.get("dob", ""),
                     ben.get("relationship", ""),
-                    f"{ben.get(\'percentage\', \'\')}".replace(\'%\', \'\') + "%"
+                    f"{ben.get('percentage', '')}".replace('%', '') + "%"
 
                 ])
             
             t = Table(beneficiaries_data, colWidths=[1.5*inch, 1.5*inch, 1.5*inch, 1*inch])
             t.setStyle(TableStyle([
-                (\'BACKGROUND\', (0, 0), (-1, 0), colors.lightgrey),
-                (\'TEXTCOLOR\', (0, 0), (-1, 0), colors.black),
-                (\'ALIGN\', (0, 0), (-1, -1), \'CENTER\'),
-                (\'FONTNAME\', (0, 0), (-1, 0), \'Helvetica-Bold\'),
-                (\'BOTTOMPADDING\', (0, 0), (-1, 0), 12),
-                (\'GRID\', (0, 0), (-1, -1), 1, colors.black)
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             content.append(t)
             content.append(Spacer(1, 0.2*inch))
@@ -222,13 +222,13 @@ def generate_pdf_from_data(form_data, output_path):
             
             t = Table(breakdown_data, colWidths=[3*inch, 1.5*inch])
             t.setStyle(TableStyle([
-                (\'BACKGROUND\', (0, 0), (-1, 0), colors.lightgrey),
-                (\'TEXTCOLOR\', (0, 0), (-1, 0), colors.black),
-                (\'ALIGN\', (0, 0), (-1, -1), \'LEFT\'),
-                (\'ALIGN\', (1, 0), (1, -1), \'CENTER\'),
-                (\'FONTNAME\', (0, 0), (-1, 0), \'Helvetica-Bold\'),
-                (\'BOTTOMPADDING\', (0, 0), (-1, 0), 12),
-                (\'GRID\', (0, 0), (-1, -1), 1, colors.black)
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             content.append(t)
             content.append(Spacer(1, 0.1*inch))
@@ -248,12 +248,12 @@ def generate_pdf_from_data(form_data, output_path):
             
             t = Table(experience_data, colWidths=[2*inch, 1.5*inch, 2*inch])
             t.setStyle(TableStyle([
-                (\'BACKGROUND\', (0, 0), (-1, 0), colors.lightgrey),
-                (\'TEXTCOLOR\', (0, 0), (-1, 0), colors.black),
-                (\'ALIGN\', (0, 0), (-1, -1), \'LEFT\'),
-                (\'FONTNAME\', (0, 0), (-1, 0), \'Helvetica-Bold\'),
-                (\'BOTTOMPADDING\', (0, 0), (-1, 0), 12),
-                (\'GRID\', (0, 0), (-1, -1), 1, colors.black)
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             content.append(t)
             content.append(Spacer(1, 0.1*inch))
@@ -322,7 +322,7 @@ def generate_pdf_from_data(form_data, output_path):
         content.append(Paragraph("Regulatory Consent", heading_style))
         content.append(Spacer(1, 0.1*inch))
         electronic_consent = "Yes" if form_data.get("electronic_regulatory_yes") else "No"
-        content.append(Paragraph(f"<b>{label}:</b> {value}", normal_style))
+        content.append(Paragraph(f"<b>Electronic Delivery Consent:</b> {electronic_consent}", normal_style))
         content.append(Spacer(1, 0.05*inch))
 
         # Build the PDF

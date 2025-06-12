@@ -6,7 +6,7 @@ Provides comprehensive validation with real-time feedback
 
 import re
 from typing import Dict, List, Any, Tuple, Optional
-from datetime import datetime
+from datetime import datetime, date
 
 class ValidationError(Exception):
     """Custom exception for validation errors"""

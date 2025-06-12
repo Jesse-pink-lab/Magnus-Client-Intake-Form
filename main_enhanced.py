@@ -943,7 +943,7 @@ class MagnusClientIntakeForm(QMainWindow):
             h_layout = QHBoxLayout()
             label = QLabel(f"{asset_type} (%):")
             spin_box = QSpinBox()
-            spin_box.setObjectName(f"asset_breakdown_{asset_type.lower().replace(\' \', \'_\')}")
+            spin_box.setObjectName(f"asset_breakdown_{asset_type.lower().replace(' ', '_')}")
             self.asset_breakdown_fields[asset_type] = spin_box
             
             h_layout.addWidget(label)
@@ -965,13 +965,13 @@ class MagnusClientIntakeForm(QMainWindow):
             
             year_label = QLabel("Year Started:")
             year_input = QLineEdit()
-            year_input.setObjectName(f"asset_experience_{exp_type.lower().replace(\' \', \'_\')}_year")
+            year_input.setObjectName(f"asset_experience_{exp_type.lower().replace(' ', '_')}_year")
             year_input.setPlaceholderText("YYYY")
             year_input.setMaximumWidth(80)
             
             level_label = QLabel("Level:")
             level_combo = QComboBox()
-            level_combo.setObjectName(f"asset_experience_{exp_type.lower().replace(\' \', \'_\')}_level")
+            level_combo.setObjectName(f"asset_experience_{exp_type.lower().replace(' ', '_')}_level")
             level_combo.addItems(["", "None", "Limited", "Good", "Extensive"])
             
             group_box_layout.addWidget(year_label)
