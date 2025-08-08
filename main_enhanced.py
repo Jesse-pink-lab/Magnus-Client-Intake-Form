@@ -42,8 +42,8 @@ from validation import VALIDATORS
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
+# Sample subset for demo purposes; expand with full list as needed
 ISO_COUNTRIES = [
-    # Sample subset for demo purposes; expand with full list as needed
     "United States",
     "Canada",
     "Mexico",
