@@ -15,6 +15,7 @@ echo Dependencies installed successfully!
 echo.
 
 echo Step 2: Creating .exe file...
+if exist dist rd /s /q dist
 pyinstaller Magnus_Client_Intake_Form.spec
 if %errorlevel% neq 0 (
     echo ERROR: Failed to create .exe file
