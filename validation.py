@@ -5,8 +5,69 @@ Provides comprehensive validation with real-time feedback
 """
 
 import re
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Any, Tuple, Optional, Callable
 from datetime import datetime, date
+
+
+# Standalone validators for the dynamic form system
+
+def iso_date(value: str) -> bool:
+    """Validate an ISO formatted date (YYYY-MM-DD)."""
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+        return True
+    except Exception:
+        return False
+
+
+def ticker(value: str) -> bool:
+    """Validate stock ticker symbols (1-5 uppercase letters or periods)."""
+    return bool(re.fullmatch(r"^[A-Z\.]{1,5}$", value or ""))
+
+
+def pct_0_100_two_dec(value: str) -> bool:
+    """Validate percentage 0-100 inclusive with up to two decimals."""
+    try:
+        num = float(value)
+    except Exception:
+        return False
+    if num < 0 or num > 100:
+        return False
+    # Ensure at most two decimal places
+    return re.fullmatch(r"^\d{1,3}(?:\.\d{1,2})?$", value or "") is not None
+
+
+def crd(value: str) -> bool:
+    """Validate CRD number: digits only, length 4-8."""
+    return bool(re.fullmatch(r"^\d{4,8}$", value or ""))
+
+
+def iso_date_gte(date_a: str, date_b: str) -> bool:
+    """Return True if ISO date_a >= ISO date_b."""
+    try:
+        a = datetime.strptime(date_a, "%Y-%m-%d")
+        b = datetime.strptime(date_b, "%Y-%m-%d")
+    except Exception:
+        return False
+    return a >= b
+
+
+def iso_date_gte_pep_start(value: str, data: Dict[str, Any]) -> bool:
+    """Validate that value is an ISO date >= pep_start in data."""
+    start = data.get("pep_start")
+    if not start or not iso_date(value) or not iso_date(start):
+        return False
+    return iso_date_gte(value, start)
+
+
+# Exported validator registry
+VALIDATORS: Dict[str, Callable[..., bool]] = {
+    "iso_date": iso_date,
+    "ticker": ticker,
+    "pct_0_100_two_dec": pct_0_100_two_dec,
+    "crd": crd,
+    "iso_date>=pep_start": iso_date_gte_pep_start,
+}
 
 class ValidationError(Exception):
     """Custom exception for validation errors"""
