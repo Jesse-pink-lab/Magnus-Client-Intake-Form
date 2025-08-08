@@ -891,24 +891,27 @@ class MagnusClientIntakeForm(QMainWindow):
         meta = self.pages[index]
         values = self.get_current_values(index)
         valid = True
-        for field in iterate_fields(meta["spec"]["sections"][0]["fields"], values):
-            name = field.get("name")
-            value = values.get(name, "")
-            if field.get("required"):
-                if field["type"] == "checkbox":
-                    if not value:
+        for section in meta["spec"].get("sections", []):
+            for field in iterate_fields(section.get("fields", []), values):
+                name = field.get("name")
+                value = values.get(name, "")
+                if field.get("required"):
+                    if field["type"] == "checkbox":
+                        if not value:
+                            valid = False
+                    elif not value:
                         valid = False
-                elif not value:
-                    valid = False
-            if valid and field.get("validate") and value not in ("", False):
-                validator = VALIDATORS.get(field["validate"])
-                if validator:
-                    try:
-                        if not validator(value, values):
-                            valid = False
-                    except TypeError:
-                        if not validator(value):
-                            valid = False
+                if valid and field.get("validate") and value not in ("", False):
+                    validator = VALIDATORS.get(field["validate"])
+                    if validator:
+                        try:
+                            if not validator(value, values):
+                                valid = False
+                        except TypeError:
+                            if not validator(value):
+                                valid = False
+                if not valid:
+                    break
             if not valid:
                 break
         meta["next_btn"].setEnabled(valid)
