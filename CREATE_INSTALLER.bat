@@ -5,7 +5,7 @@ echo ============================================
 echo.
 
 echo Step 1: Installing Python dependencies...
-pip install PyQt6 reportlab cryptography pyinstaller
+pip install PyQt6 reportlab python-docx cryptography pyinstaller
 if %errorlevel% neq 0 (
     echo ERROR: Failed to install dependencies
     pause
