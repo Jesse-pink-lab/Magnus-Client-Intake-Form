@@ -235,8 +235,26 @@ def generate_pdf_report(form_data, output_path):
                 return f"{value}%"
             return "[Not provided]"
 
+        def safe(s):
+            return "" if s is None else str(s)
+
+        def format_pct(v):
+            try:
+                return f"{float(v):.2f}%"
+            except Exception:
+                return safe(v)
+
         # Start building the content
         content = []
+
+        def render_section(title, rows):
+            content.append(Paragraph(title, heading_style))
+            if not rows:
+                content.append(Paragraph("No disclosures.", normal_style))
+            else:
+                for label, val in rows:
+                    content.append(Paragraph(f"{label}: {safe(val)}", normal_style))
+            content.append(Spacer(1, 12))
         
         # Title
         content.append(Paragraph("Magnus Client Intake Form", title_style))
@@ -370,6 +388,116 @@ def generate_pdf_report(form_data, output_path):
             content.append(Paragraph(f"  Year Started: {year or '[Not provided]'}", normal_style))
             content.append(Paragraph(f"  Experience Level: {level or '[Not provided]'}", normal_style))
         content.append(Spacer(1, 12))
+
+        # Broker-Dealer Relationships
+        bd_primary = [
+            form_data.get("employee_this_bd", "No"),
+            form_data.get("related_this_bd", "No"),
+            form_data.get("employee_other_bd", "No"),
+            form_data.get("related_other_bd", "No"),
+        ]
+        bd_rows = []
+        if form_data.get("employee_this_bd") == "Yes":
+            bd_rows.extend([
+                ("Employee Name", form_data.get("employee_name")),
+                ("Department", form_data.get("department")),
+                ("Branch", form_data.get("branch")),
+                ("Start Date", form_data.get("start_date")),
+            ])
+        if form_data.get("related_this_bd") == "Yes":
+            bd_rows.extend([
+                ("Related Employee Name", form_data.get("related_employee_name")),
+                ("Relationship", form_data.get("relationship")),
+                ("Branch", form_data.get("branch_related")),
+            ])
+        if form_data.get("employee_other_bd") == "Yes":
+            bd_rows.extend([
+                ("Firm Name", form_data.get("firm_name_other")),
+                ("CRD", form_data.get("crd_other")),
+                ("Role", form_data.get("role_other")),
+                ("Start Date", form_data.get("start_date_other")),
+            ])
+        if form_data.get("related_other_bd") == "Yes":
+            bd_rows.extend([
+                ("Firm Name", form_data.get("firm_name_rel")),
+                ("Employee Name", form_data.get("employee_name_rel")),
+                ("Relationship", form_data.get("relationship_rel")),
+            ])
+        render_section(
+            "Broker-Dealer Relationships",
+            bd_rows if "Yes" in bd_primary else None,
+        )
+
+        # Regulatory Affiliations
+        reg_primary = [
+            form_data.get("sro_member", "No"),
+            form_data.get("control_person", "No"),
+        ]
+        reg_rows = []
+        if form_data.get("sro_member") == "Yes":
+            reg_rows.extend([
+                ("Membership Type", form_data.get("membership_type")),
+                ("CRD/Member ID", form_data.get("sro_crd")),
+                ("Branch", form_data.get("sro_branch")),
+            ])
+        if form_data.get("control_person") == "Yes":
+            reg_rows.extend([
+                ("Company", form_data.get("company_name")),
+                ("Ticker", form_data.get("ticker")),
+                ("Exchange", form_data.get("exchange")),
+                ("Role/Capacity", form_data.get("role")),
+                ("Ownership %", format_pct(form_data.get("ownership_pct"))),
+                ("As Of", form_data.get("as_of")),
+            ])
+        render_section(
+            "Regulatory Affiliations",
+            reg_rows if "Yes" in reg_primary else None,
+        )
+
+        # Foreign Financial Accounts
+        foreign_primary = [form_data.get("has_ffi", "No")]
+        foreign_rows = []
+        if form_data.get("has_ffi") == "Yes":
+            foreign_rows.extend([
+                ("Institution", form_data.get("institution_name")),
+                ("Country", form_data.get("country")),
+                ("Purpose", form_data.get("purpose")),
+                ("Source of Funds", form_data.get("source_of_funds")),
+                ("Open Date", form_data.get("open_date")),
+                (
+                    "Private Banking Account",
+                    "Yes" if form_data.get("private_banking") in (True, "Yes") else "No",
+                ),
+                (
+                    "Foreign Bank Account",
+                    "Yes" if form_data.get("foreign_bank_acct") in (True, "Yes") else "No",
+                ),
+            ])
+        render_section(
+            "Foreign Financial Accounts",
+            foreign_rows if "Yes" in foreign_primary else None,
+        )
+
+        # Politically Exposed Person (PEP)
+        pep_primary = [form_data.get("is_pep", "No")]
+        pep_rows = []
+        if form_data.get("is_pep") == "Yes":
+            pep_rows.extend([
+                ("Name", form_data.get("pep_name")),
+                ("Country", form_data.get("pep_country")),
+                ("Relationship", form_data.get("pep_relationship")),
+                ("Title", form_data.get("pep_title")),
+                ("Start Date", form_data.get("pep_start")),
+                ("End Date", form_data.get("pep_end")),
+                (
+                    "Screening Consent",
+                    "Yes" if form_data.get("pep_screening_consent") in (True, "Yes") else "No",
+                ),
+            ])
+        render_section(
+            "Politically Exposed Person (PEP)",
+            pep_rows if "Yes" in pep_primary else None,
+        )
 
         # Outside Broker Information
         if form_data.get('has_outside_broker'):

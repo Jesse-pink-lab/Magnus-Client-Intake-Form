@@ -8,6 +8,8 @@ validated using validators from :mod:`validation`.
 """
 from __future__ import annotations
 
+import json
+import os
 import sys
 from typing import Any, Dict, List, Tuple
 
@@ -50,6 +52,8 @@ ISO_COUNTRIES = [
     "Australia",
     "Japan",
 ]
+
+STATE_FILE = "state.json"
 
 # ---------------------------------------------------------------------------
 # Page specification
@@ -580,10 +584,59 @@ class MagnusClientIntakeForm(QMainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.state: Dict[str, str] = {}
+        self.state: Dict[str, Any] = self.build_default_state()
+        self.load_state(STATE_FILE)
         self.current_page = 0
         self.pages: List[Dict[str, Any]] = []
         self.init_ui()
+
+    # ---------------------------------------------------------- STATE I/O --
+    def build_default_state(self) -> Dict[str, Any]:
+        state: Dict[str, Any] = {}
+
+        def walk(fields: List[Dict[str, Any]]) -> None:
+            for fld in fields:
+                if fld.get("type") == "group":
+                    walk(fld.get("fields", []))
+                    continue
+                name = fld.get("name")
+                ftype = fld.get("type")
+                if ftype == "radio":
+                    state[name] = "No"
+                elif ftype == "checkbox":
+                    state[name] = False
+                else:
+                    state[name] = ""
+
+        for page in PAGES:
+            for section in page.get("sections", []):
+                walk(section.get("fields", []))
+        return state
+
+    def load_state(self, path: str) -> None:
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            for k, v in data.items():
+                if k in self.state:
+                    if isinstance(self.state[k], bool):
+                        if isinstance(v, str):
+                            self.state[k] = v.lower() == "yes"
+                        else:
+                            self.state[k] = bool(v)
+                    else:
+                        self.state[k] = v
+        except Exception:
+            pass
+
+    def save_state(self, path: str) -> None:
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump(self.state, fh, indent=2)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------ UI --
     def init_ui(self) -> None:
@@ -695,6 +748,8 @@ class MagnusClientIntakeForm(QMainWindow):
                 group = QButtonGroup(container)
                 for opt in field.get("options", []):
                     rb = QRadioButton(opt)
+                    if self.state.get(name) == opt:
+                        rb.setChecked(True)
                     group.addButton(rb)
                     hl.addWidget(rb)
                     rb.toggled.connect(self.handle_field_change)
@@ -709,28 +764,38 @@ class MagnusClientIntakeForm(QMainWindow):
                 if opts == "ISO_COUNTRIES":
                     opts = ISO_COUNTRIES
                 widget.addItems([""] + opts)
+                widget.setCurrentText(self.state.get(name, ""))
                 widget.currentTextChanged.connect(self.handle_field_change)
                 widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             elif ftype == "text":
                 widget = QLineEdit()
+                widget.setText(self.state.get(name, ""))
                 widget.textChanged.connect(self.handle_field_change)
                 widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             elif ftype == "number":
                 widget = QLineEdit()
+                widget.setText(self.state.get(name, ""))
                 widget.textChanged.connect(self.handle_field_change)
                 widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             elif ftype == "date":
                 widget = QDateEdit()
                 widget.setDisplayFormat("yyyy-MM-dd")
                 widget.setCalendarPopup(True)
+                val = self.state.get(name, "")
+                if val:
+                    dt = QDate.fromString(val, "yyyy-MM-dd")
+                    if dt.isValid():
+                        widget.setDate(dt)
                 widget.dateChanged.connect(self.handle_field_change)
                 widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             elif ftype == "textarea":
                 widget = QTextEdit()
+                widget.setPlainText(self.state.get(name, ""))
                 widget.textChanged.connect(self.handle_field_change)
                 widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             elif ftype == "checkbox":
                 widget = QCheckBox(label_text)
+                widget.setChecked(bool(self.state.get(name, False)))
                 widget.stateChanged.connect(self.handle_field_change)
                 label_text = ""  # label already used
             else:
@@ -748,6 +813,7 @@ class MagnusClientIntakeForm(QMainWindow):
         if not self.validate_current_page(self.current_page):
             return
         self.state.update(self.get_current_values(self.current_page))
+        self.save_state(STATE_FILE)
         if self.current_page < len(PAGES) - 1:
             self.current_page += 1
             self.stack.setCurrentIndex(self.current_page)
@@ -759,6 +825,7 @@ class MagnusClientIntakeForm(QMainWindow):
 
     def on_back(self) -> None:
         self.state.update(self.get_current_values(self.current_page))
+        self.save_state(STATE_FILE)
         if self.current_page > 0:
             self.current_page -= 1
             self.stack.setCurrentIndex(self.current_page)
@@ -771,9 +838,9 @@ class MagnusClientIntakeForm(QMainWindow):
         self.progress.setValue(pct)
 
     # ------------------------------------------------------------- VALUES --
-    def get_current_values(self, index: int) -> Dict[str, str]:
+    def get_current_values(self, index: int) -> Dict[str, Any]:
         meta = self.pages[index]
-        values: Dict[str, str] = {}
+        values: Dict[str, Any] = {}
         for name, info in meta["inputs"].items():
             ftype = info["type"]
             if ftype == "radio":
@@ -788,7 +855,7 @@ class MagnusClientIntakeForm(QMainWindow):
             elif ftype == "textarea":
                 values[name] = info["widget"].toPlainText()
             elif ftype == "checkbox":
-                values[name] = "Yes" if info["widget"].isChecked() else "No"
+                values[name] = info["widget"].isChecked()
         return values
 
     # -------------------------------------------------------------- GROUPS --
@@ -809,11 +876,11 @@ class MagnusClientIntakeForm(QMainWindow):
             value = values.get(name, "")
             if field.get("required"):
                 if field["type"] == "checkbox":
-                    if value != "Yes":
+                    if not value:
                         valid = False
                 elif not value:
                     valid = False
-            if valid and field.get("validate") and value:
+            if valid and field.get("validate") and value not in ("", False):
                 validator = VALIDATORS.get(field["validate"])
                 if validator:
                     try:
@@ -829,6 +896,7 @@ class MagnusClientIntakeForm(QMainWindow):
 
     # ------------------------------------------------------------- SIGNAL --
     def handle_field_change(self) -> None:
+        self.state.update(self.get_current_values(self.current_page))
         self.update_groups(self.current_page)
         self.validate_current_page(self.current_page)
 
