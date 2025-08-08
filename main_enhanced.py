@@ -42,6 +42,7 @@ from validation import VALIDATORS
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
+
 ISO_COUNTRIES = [
     "United States",
     "Canada",
@@ -257,6 +258,7 @@ PAGES: List[Dict[str, Any]] = [
                         ],
                     },
                 ],
+
             }
         ],
     },
@@ -552,6 +554,303 @@ PAGES: List[Dict[str, Any]] = [
             }
         ],
     },
+
+            }
+        ],
+    },
+    {
+        "key": "reg_affiliations",
+        "title": "Regulatory Affiliations",
+        "sections": [
+            {
+                "title": "SRO Membership & Control Persons",
+                "fields": [
+                    {
+                        "name": "sro_member",
+                        "label": "Member of Stk Exch./FINRA?",
+                        "type": "radio",
+                        "required": True,
+                        "options": ["Yes", "No"],
+                    },
+                    {
+                        "type": "group",
+                        "show_if": {"sro_member": "Yes"},
+                        "fields": [
+                            {
+                                "name": "membership_type",
+                                "label": "Membership Type",
+                                "type": "select",
+                                "required": True,
+                                "options": ["FINRA", "NYSE", "NASDAQ", "Other"],
+                                "show_if": None,
+                                "validate": None,
+                            },
+                            {
+                                "name": "sro_crd",
+                                "label": "CRD #",
+                                "type": "text",
+                                "required": False,
+                                "options": None,
+                                "show_if": None,
+                                "validate": "crd",
+                            },
+                            {
+                                "name": "sro_branch",
+                                "label": "Branch",
+                                "type": "text",
+                                "required": False,
+                                "options": None,
+                                "show_if": None,
+                                "validate": None,
+                            },
+                        ],
+                    },
+                    {
+                        "name": "control_person",
+                        "label": "Are you a senior officer, director, or 10% or more shareholder of a public company?",
+                        "type": "radio",
+                        "required": True,
+                        "options": ["Yes", "No"],
+                    },
+                    {
+                        "type": "group",
+                        "show_if": {"control_person": "Yes"},
+                        "fields": [
+                            {
+                                "name": "company_name",
+                                "label": "Company Name",
+                                "type": "text",
+                                "required": True,
+                                "options": None,
+                                "show_if": None,
+                                "validate": None,
+                            },
+                            {
+                                "name": "ticker",
+                                "label": "Ticker",
+                                "type": "text",
+                                "required": False,
+                                "options": None,
+                                "show_if": None,
+                                "validate": "ticker",
+                            },
+                            {
+                                "name": "exchange",
+                                "label": "Exchange",
+                                "type": "select",
+                                "required": False,
+                                "options": ["NYSE", "NASDAQ", "AMEX", "Other"],
+                                "show_if": None,
+                                "validate": None,
+                            },
+                            {
+                                "name": "role",
+                                "label": "Role",
+                                "type": "text",
+                                "required": False,
+                                "options": None,
+                                "show_if": None,
+                                "validate": None,
+                            },
+                            {
+                                "name": "ownership_pct",
+                                "label": "Ownership %",
+                                "type": "number",
+                                "required": False,
+                                "options": None,
+                                "show_if": None,
+                                "validate": "pct_0_100_two_dec",
+                            },
+                            {
+                                "name": "as_of",
+                                "label": "As Of",
+                                "type": "date",
+                                "required": False,
+                                "options": None,
+                                "show_if": None,
+                                "validate": "iso_date",
+                            },
+                        ],
+                    },
+                ],
+            }
+        ],
+    },
+    {
+        "key": "foreign_accounts",
+        "title": "Foreign Financial Accounts",
+        "sections": [
+            {
+                "title": "FFI / Private Banking",
+                "fields": [
+                    {
+                        "name": "has_ffi",
+                        "label": "Foreign Financial Institution Account?",
+                        "type": "radio",
+                        "required": True,
+                        "options": ["Yes", "No"],
+                    },
+                    {
+                        "type": "group",
+                        "show_if": {"has_ffi": "Yes"},
+                        "fields": [
+                            {
+                                "name": "institution_name",
+                                "label": "Institution Name",
+                                "type": "text",
+                                "required": True,
+                                "options": None,
+                                "show_if": None,
+                                "validate": None,
+                            },
+                            {
+                                "name": "country",
+                                "label": "Country",
+                                "type": "select",
+                                "required": True,
+                                "options": "ISO_COUNTRIES",
+                                "show_if": None,
+                                "validate": None,
+                            },
+                            {
+                                "name": "purpose",
+                                "label": "Purpose",
+                                "type": "select",
+                                "required": True,
+                                "options": ["Savings", "Brokerage", "Payments", "Other"],
+                                "show_if": None,
+                                "validate": None,
+                            },
+                            {
+                                "name": "source_of_funds",
+                                "label": "Source of Funds",
+                                "type": "textarea",
+                                "required": False,
+                                "options": None,
+                                "show_if": None,
+                                "validate": None,
+                            },
+                            {
+                                "name": "open_date",
+                                "label": "Open Date",
+                                "type": "date",
+                                "required": False,
+                                "options": None,
+                                "show_if": None,
+                                "validate": "iso_date",
+                            },
+                            {
+                                "name": "private_banking",
+                                "label": "Is this a private banking account?",
+                                "type": "radio",
+                                "required": False,
+                                "options": ["Yes", "No"],
+                                "show_if": None,
+                                "validate": None,
+                            },
+                            {
+                                "name": "foreign_bank_acct",
+                                "label": "Is this an account for a Foreign Bank?",
+                                "type": "radio",
+                                "required": False,
+                                "options": ["Yes", "No"],
+                                "show_if": None,
+                                "validate": None,
+                            },
+                        ],
+                    },
+                ],
+            }
+        ],
+    },
+    {
+        "key": "pep",
+        "title": "Politically Exposed Person (PEP)",
+        "sections": [
+            {
+                "title": "PEP Screening",
+                "fields": [
+                    {
+                        "name": "is_pep",
+                        "label": "Politically Exposed Person?",
+                        "type": "radio",
+                        "required": True,
+                        "options": ["Yes", "No"],
+                    },
+                    {
+                        "type": "group",
+                        "show_if": {"is_pep": "Yes"},
+                        "fields": [
+                            {
+                                "name": "pep_name",
+                                "label": "PEP Name",
+                                "type": "text",
+                                "required": True,
+                                "options": None,
+                                "show_if": None,
+                                "validate": None,
+                            },
+                            {
+                                "name": "pep_country",
+                                "label": "Country",
+                                "type": "select",
+                                "required": True,
+                                "options": "ISO_COUNTRIES",
+                                "show_if": None,
+                                "validate": None,
+                            },
+                            {
+                                "name": "pep_relationship",
+                                "label": "Relationship",
+                                "type": "select",
+                                "required": True,
+                                "options": ["Self", "Family", "Associate"],
+                                "show_if": None,
+                                "validate": None,
+                            },
+                            {
+                                "name": "pep_title",
+                                "label": "Title",
+                                "type": "text",
+                                "required": False,
+                                "options": None,
+                                "show_if": None,
+                                "validate": None,
+                            },
+                            {
+                                "name": "pep_start",
+                                "label": "Start Date",
+                                "type": "date",
+                                "required": False,
+                                "options": None,
+                                "show_if": None,
+                                "validate": "iso_date",
+                            },
+                            {
+                                "name": "pep_end",
+                                "label": "End Date",
+                                "type": "date",
+                                "required": False,
+                                "options": None,
+                                "show_if": None,
+                                "validate": "iso_date>=pep_start",
+                            },
+                            {
+                                "name": "pep_screening_consent",
+                                "label": "I consent to screening",
+                                "type": "checkbox",
+                                "required": True,
+                                "options": None,
+                                "show_if": None,
+                                "validate": None,
+                            },
+                        ],
+                    },
+                ],
+            }
+        ],
+    },
+
 ]
 
 # ---------------------------------------------------------------------------
@@ -691,7 +990,15 @@ class MagnusClientIntakeForm(QMainWindow):
             self.render_fields(section.get("fields", []), box_layout, inputs, groups)
             content_layout.addWidget(box)
 
-        # Spacer to absorb extra height
+        content_layout.addItem(
+            QSpacerItem(
+                0,
+                0,
+                QSizePolicy.Policy.Minimum,
+                QSizePolicy.Policy.Expanding,
+            )
+        )
+=======
         content_layout.addItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
         # Navigation buttons outside scroll area
@@ -753,7 +1060,13 @@ class MagnusClientIntakeForm(QMainWindow):
                     group.addButton(rb)
                     hl.addWidget(rb)
                     rb.toggled.connect(self.handle_field_change)
+
+                container.setSizePolicy(
+                    QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+                )
+=======
                 container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
                 inputs[name] = {"type": "radio", "group": group}
                 layout.addWidget(container)
                 continue
@@ -766,17 +1079,35 @@ class MagnusClientIntakeForm(QMainWindow):
                 widget.addItems([""] + opts)
                 widget.setCurrentText(self.state.get(name, ""))
                 widget.currentTextChanged.connect(self.handle_field_change)
+
+                widget.setSizePolicy(
+                    QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+                )
+
                 widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
             elif ftype == "text":
                 widget = QLineEdit()
                 widget.setText(self.state.get(name, ""))
                 widget.textChanged.connect(self.handle_field_change)
+
+                widget.setSizePolicy(
+                    QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+                )
+
                 widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
             elif ftype == "number":
                 widget = QLineEdit()
                 widget.setText(self.state.get(name, ""))
                 widget.textChanged.connect(self.handle_field_change)
+
+                widget.setSizePolicy(
+                    QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+                )
+
                 widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
             elif ftype == "date":
                 widget = QDateEdit()
                 widget.setDisplayFormat("yyyy-MM-dd")
@@ -787,12 +1118,24 @@ class MagnusClientIntakeForm(QMainWindow):
                     if dt.isValid():
                         widget.setDate(dt)
                 widget.dateChanged.connect(self.handle_field_change)
+
+                widget.setSizePolicy(
+                    QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+                )
+
                 widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
             elif ftype == "textarea":
                 widget = QTextEdit()
                 widget.setPlainText(self.state.get(name, ""))
                 widget.textChanged.connect(self.handle_field_change)
+
+                widget.setSizePolicy(
+                    QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+                )
+
                 widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
             elif ftype == "checkbox":
                 widget = QCheckBox(label_text)
                 widget.setChecked(bool(self.state.get(name, False)))
@@ -871,6 +1214,29 @@ class MagnusClientIntakeForm(QMainWindow):
         meta = self.pages[index]
         values = self.get_current_values(index)
         valid = True
+
+        for section in meta["spec"].get("sections", []):
+            for field in iterate_fields(section.get("fields", []), values):
+                name = field.get("name")
+                value = values.get(name, "")
+                if field.get("required"):
+                    if field["type"] == "checkbox":
+                        if not value:
+                            valid = False
+                    elif not value:
+                        valid = False
+                if valid and field.get("validate") and value not in ("", False):
+                    validator = VALIDATORS.get(field["validate"])
+                    if validator:
+                        try:
+                            if not validator(value, values):
+                                valid = False
+                        except TypeError:
+                            if not validator(value):
+                                valid = False
+                if not valid:
+                    break
+
         for field in iterate_fields(meta["spec"]["sections"][0]["fields"], values):
             name = field.get("name")
             value = values.get(name, "")
@@ -889,6 +1255,7 @@ class MagnusClientIntakeForm(QMainWindow):
                     except TypeError:
                         if not validator(value):
                             valid = False
+
             if not valid:
                 break
         meta["next_btn"].setEnabled(valid)
