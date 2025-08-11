@@ -11,11 +11,16 @@ def build_default_state() -> Dict[str, Any]:
 
     def walk(fields):
         for fld in fields:
-            if fld.get("type") == "group":
+            ftype = fld.get("type")
+            if ftype == "group":
                 walk(fld.get("fields", []))
                 continue
+            if ftype == "repeating_group":
+                state[fld.get("name")] = []
+                continue
+            if ftype == "label":
+                continue
             name = fld.get("name")
-            ftype = fld.get("type")
             if ftype == "radio":
                 state[name] = "No"
             elif ftype == "checkbox":
