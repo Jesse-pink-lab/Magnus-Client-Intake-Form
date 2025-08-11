@@ -72,7 +72,11 @@ class PageRenderer:
                 groups.append((container, field["show_if"]))
                 continue
 
+
             if ftype == "repeating_group" and name:
+
+            if field.get("type") == "repeating_group":
+
                 container = QWidget()
                 vbox = QVBoxLayout(container)
                 item_inputs: List[Dict[str, Dict[str, Any]]] = []
@@ -115,6 +119,9 @@ class PageRenderer:
                 }
                 continue
 
+
+            ftype = field.get("type")
+            name = field.get("name")
             label_text = field.get("label", name)
             widget: QWidget
 
