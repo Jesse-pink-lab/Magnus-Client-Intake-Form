@@ -16,7 +16,7 @@ echo.
 
 echo Step 2: Creating .exe file...
 if exist dist rd /s /q dist
-pyinstaller --noconfirm --onefile --name Magnus_Client_Intake_Form ^
+pyinstaller --noconfirm --onefile --noconsole --name Magnus_Client_Intake_Form ^
   --icon ICON.ico ^
   --collect-submodules PyQt6 --collect-data PyQt6 ^
   --add-data "ui;ui" --add-data "magnus_app;magnus_app" ^
