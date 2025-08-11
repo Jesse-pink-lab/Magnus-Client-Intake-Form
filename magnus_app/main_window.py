@@ -132,15 +132,114 @@ class MagnusClientIntakeForm(QMainWindow):
         return page
 
     def _refresh_review(self) -> None:
-        lines = ["---- MAGNUS CLIENT INTAKE FORM — REVIEW ----", ""]
-
-        def get(name, default="Not provided"):
+        def get(name: str, default: str = "Not provided") -> str:
             val = self.state.get(name)
             if val is True:
                 return "Yes"
             if val is False:
                 return "No"
             return val if (val not in ("", None)) else default
+
+        def join_options(options):
+            selected = [label for key, label in options if self.state.get(key)]
+            return ", ".join(selected) if selected else "Not provided"
+
+        # Investment purpose checkboxes
+        purposes = join_options([
+            ("inv_purpose_income", "Income"),
+            ("inv_purpose_growth_income", "Growth and Income"),
+            ("inv_purpose_cap_app", "Capital Appreciation"),
+            ("inv_purpose_speculation", "Speculation"),
+        ])
+
+        # Investment objectives rankings
+        objectives_map = [
+            ("obj_trading_profits_rank", "Trading Profits"),
+            ("obj_speculation_rank", "Speculation"),
+            ("obj_capital_app_rank", "Capital Appreciation"),
+            ("obj_income_rank", "Income"),
+            ("obj_preservation_rank", "Preservation of Capital"),
+        ]
+        obj_lines = [
+            f"{label}: {get(key)}" for key, label in objectives_map if self.state.get(key)
+        ]
+        objectives = "<br/>".join(obj_lines) if obj_lines else "Not provided"
+
+        # Dependents
+        dependents = self.state.get("dependents") or []
+        if not dependents and any(
+            self.state.get(k) for k in ("dep_full_name", "dep_dob", "dep_relationship")
+        ):
+            dependents = [
+                {
+                    "name": self.state.get("dep_full_name"),
+                    "dob": self.state.get("dep_dob"),
+                    "relationship": self.state.get("dep_relationship"),
+                }
+            ]
+        dep_lines = [
+            f"{d.get('name', 'Not provided')} (DOB: {d.get('dob', 'Not provided')}, Relationship: {d.get('relationship', 'Not provided')})"
+            for d in dependents
+        ]
+        dependents_html = "<br/>".join(dep_lines) if dep_lines else "Not provided"
+
+        # Beneficiaries
+        beneficiaries = self.state.get("beneficiaries") or []
+        if not beneficiaries and any(
+            self.state.get(k)
+            for k in ("ben_full_name", "ben_dob", "ben_relationship", "ben_allocation_pct")
+        ):
+            beneficiaries = [
+                {
+                    "name": self.state.get("ben_full_name"),
+                    "dob": self.state.get("ben_dob"),
+                    "relationship": self.state.get("ben_relationship"),
+                    "percentage": self.state.get("ben_allocation_pct"),
+                }
+            ]
+        ben_lines = [
+            f"{b.get('name', 'Not provided')} (DOB: {b.get('dob', 'Not provided')}, Relationship: {b.get('relationship', 'Not provided')}, Allocation: {b.get('percentage', 'Not provided')})"
+            for b in beneficiaries
+        ]
+        beneficiaries_html = "<br/>".join(ben_lines) if ben_lines else "Not provided"
+
+        # Investment experience
+        asset_map = [
+            ("Stocks", "stocks"),
+            ("Bonds", "bonds"),
+            ("Mutual Funds", "mutual_funds"),
+            ("UITs", "uits"),
+            ("Annuities (Fixed)", "annuities_fixed"),
+            ("Annuities (Variable)", "annuities_variable"),
+            ("Options", "options"),
+            ("Commodities", "commodities"),
+            ("Alternative Investments", "alternative_investments"),
+            ("Limited Partnerships", "limited_partnerships"),
+            ("Variable Contracts", "variable_contracts"),
+        ]
+        exp_lines = []
+        for label, key in asset_map:
+            year = get(f"{key}_year_started")
+            level = get(f"{key}_level")
+            if year == "Not provided" and level == "Not provided":
+                continue
+            exp_lines.append(
+                f"{label} – Year Started: {year}, Level: {level}"
+            )
+        investment_experience = "<br/>".join(exp_lines) if exp_lines else "Not provided"
+
+        # Spouse/partner info
+        if not self.state.get("no_spouse"):
+            spouse_html = (
+                f"<b>Full Name:</b> {get('spouse_full_name')}<br/>"
+                f"<b>Date of Birth:</b> {get('spouse_dob')}<br/>"
+                f"<b>SSN:</b> {get('spouse_ssn')}<br/>"
+                f"<b>Employment Status:</b> {get('spouse_employment_status')}<br/>"
+                f"<b>Employer:</b> {get('spouse_employer_name')}<br/>"
+                f"<b>Job Title:</b> {get('spouse_job_title')}"
+            )
+        else:
+            spouse_html = "[Not applicable]"
 
         html = f"""
         <div style="font-family: Segoe UI,Inter,system-ui; color:#111827;">
@@ -151,6 +250,7 @@ class MagnusClientIntakeForm(QMainWindow):
             <b>Full Name:</b> {get('full_name')}<br/>
             <b>Date of Birth:</b> {get('dob')}<br/>
             <b>SSN:</b> {get('ssn')}<br/>
+            <b>Citizenship:</b> {get('citizenship_status')}<br/>
             <b>Marital Status:</b> {get('marital_status')}
           </p>
 
@@ -158,27 +258,46 @@ class MagnusClientIntakeForm(QMainWindow):
           <p>
             <b>Residential Address:</b> {get('address')}<br/>
             <b>Email:</b> {get('email')}<br/>
-            <b>Mobile Phone:</b> {get('phone_mobile')}
+            <b>Home Phone:</b> {get('phone_home')}<br/>
+            <b>Mobile Phone:</b> {get('phone_mobile')}<br/>
+            <b>Work Phone:</b> {get('phone_work')}
           </p>
 
           <h4>EMPLOYMENT INFORMATION</h4>
           <p>
             <b>Status:</b> {get('employment_status')}<br/>
             <b>Employer:</b> {get('employer_name')}<br/>
-            <b>Title:</b> {get('job_title')}
+            <b>Title:</b> {get('job_title')}<br/>
+            <b>Years with Employer:</b> {get('years_with_employer')}
           </p>
 
           <h4>FINANCIAL INFORMATION</h4>
           <p>
             <b>Education:</b> {get('education')}<br/>
             <b>Risk Tolerance:</b> {get('risk_tolerance')}<br/>
+            <b>Investment Purpose:</b> {purposes}<br/>
+            <b>Investment Objectives:</b><br/>{objectives}<br/>
             <b>Est. Net Worth:</b> {get('est_net_worth')}<br/>
-            <b>Est. Liquid Net Worth:</b> {get('est_liquid_net_worth')}
+            <b>Est. Liquid Net Worth:</b> {get('est_liquid_net_worth')}<br/>
+            <b>Assets Held Away:</b> {get('assets_held_away')}
           </p>
+
+          <h4>SPOUSE/PARTNER INFORMATION</h4>
+          <p>{spouse_html}</p>
+
+          <h4>DEPENDENTS</h4>
+          <p>{dependents_html}</p>
+
+          <h4>BENEFICIARIES</h4>
+          <p>{beneficiaries_html}</p>
+
+          <h4>INVESTMENT EXPERIENCE</h4>
+          <p>{investment_experience}</p>
 
           <h4>TRUSTED CONTACT</h4>
           <p>
             <b>Name:</b> {get('tcp_full_name')}<br/>
+            <b>Relationship:</b> {get('tcp_relationship')}<br/>
             <b>Phone:</b> {get('tcp_phone')}<br/>
             <b>Email:</b> {get('tcp_email')}
           </p>
