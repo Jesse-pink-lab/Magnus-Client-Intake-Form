@@ -12,10 +12,10 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from .pages import PAGES
-from .state import STATE_FILE, load_state, save_state
-from .renderer import PageRenderer
-from .validation import VALIDATORS
+from magnus_app.pages import PAGES
+from magnus_app.state import STATE_FILE, load_state, save_state
+from magnus_app.renderer import PageRenderer
+from magnus_app.validation import VALIDATORS
 
 
 class MagnusClientIntakeForm(QMainWindow):

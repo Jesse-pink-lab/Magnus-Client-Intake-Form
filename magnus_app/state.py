@@ -2,7 +2,7 @@ import json
 import os
 from typing import Any, Dict
 
-from .pages import PAGES
+from magnus_app.pages import PAGES
 
 STATE_FILE = "state.json"
 

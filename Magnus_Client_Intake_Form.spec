@@ -1,20 +1,27 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
-# Explicitly include required modules that aren't imported at build time
-extra_datas = [
-    ('magnus_app/pdf_generator_reportlab.py', 'magnus_app'),
-    ('magnus_app/validation.py', 'magnus_app'),
-    ('security.py', '.'),
-]
+pyqt6_datas = collect_data_files("PyQt6")
+pyqt6_hidden = collect_submodules("PyQt6")
 
 a = Analysis(
-    ['magnus_app/app.py'],
+    ['main_enhanced.py'],
     pathex=['.'],
     binaries=[],
-    datas=extra_datas,
-    hiddenimports=[],
+    datas=pyqt6_datas + [
+        ('ui', 'ui'),
+        ('magnus_app', 'magnus_app'),
+        ('security.py', '.'),
+    ],
+    hiddenimports=pyqt6_hidden + [
+        'magnus_app.pages',
+        'magnus_app.state',
+        'magnus_app.renderer',
+        'magnus_app.validation',
+        'magnus_app.main_window',
+        'magnus_app.app',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -38,10 +45,5 @@ exe = EXE(
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
     icon=['ICON.ico'],
 )

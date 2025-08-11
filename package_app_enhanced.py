@@ -87,7 +87,6 @@ a = Analysis(
     binaries=[],
     datas=[
         ('LICENSE.txt', '.'),
-        ('magnus_app/pdf_generator_reportlab.py', 'magnus_app'),
         ('magnus_app/validation.py', 'magnus_app'),
         ('security.py', '.'),
         ('requirements.txt', '.')
