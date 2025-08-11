@@ -35,15 +35,33 @@ class PageRenderer:
         """Yield field specs that should be validated based on show_if rules."""
         for fld in fields:
             ftype = fld.get("type")
-            if ftype in ("group", "repeating_group"):
-                # Groups (including repeating groups) may be conditionally shown
+            if ftype == "group":
                 cond = fld.get("show_if") or {}
                 if cond:
                     name, val = next(iter(cond.items()))
                     if values.get(name, "") != val:
                         continue
-                # For validation we simply iterate over the child field specs
                 yield from self.iterate_fields(fld.get("fields", []), values)
+            elif ftype == "repeating_group":
+                cond = fld.get("show_if") or {}
+                if cond:
+                    name, val = next(iter(cond.items()))
+                    if values.get(name, "") != val:
+                        continue
+                name = fld.get("name")
+                items = values.get(name)
+                if not isinstance(items, list) or not items:
+                    items = [{}]
+                for i, item_vals in enumerate(items):
+                    for sub in fld.get("fields", []):
+                        scond = sub.get("show_if")
+                        if scond:
+                            sname, sval = next(iter(scond.items()))
+                            if item_vals.get(sname, "") != sval:
+                                continue
+                        sub_spec = dict(sub)
+                        sub_spec["_rg"] = {"name": name, "index": i}
+                        yield sub_spec
             elif ftype != "label":
                 cond = fld.get("show_if")
                 if cond:
@@ -74,66 +92,62 @@ class PageRenderer:
             elif ftype == "repeating_group" and name:
                 container = QWidget()
                 vbox = QVBoxLayout(container)
-                item_inputs: List[Dict[str, Dict[str, Any]]] = []
+
+                items = self.state.get(name)
+                if not isinstance(items, list):
+                    items = []
+                    self.state[name] = items
+
                 item_boxes: List[QGroupBox] = []
 
                 def renumber() -> None:
                     for i, box in enumerate(item_boxes):
                         box.setTitle(f"{field.get('item_label', 'Item')} {i + 1}")
 
-                def add_item(data: Dict[str, Any] | None = None) -> None:
+                def add_item(prefill: Dict[str, Any] | None = None) -> None:
                     idx = len(item_boxes)
+                    if prefill is None:
+                        prefill = {}
+                    if idx >= len(items):
+                        items.append(prefill)
                     box = QGroupBox(f"{field.get('item_label', 'Item')} {idx + 1}")
                     box_layout = QVBoxLayout(box)
-                    sub_inputs: Dict[str, Dict[str, Any]] = {}
                     for sub in field.get("fields", []):
-                        sub_name = sub.get("name")
-                        unique = f"{name}_{idx}_{sub_name}"
-                        sub_spec = dict(sub)
-                        sub_spec["name"] = unique
-                        if data:
-                            self.state[unique] = data.get(sub_name, "")
-                        self.render_fields([sub_spec], box_layout, sub_inputs, groups, on_change)
-                        if unique in sub_inputs:
-                            sub_inputs[unique]["orig_name"] = sub_name
+                        self._render_repeating_subfield(name, idx, sub, box_layout, on_change)
 
                     remove_btn = QPushButton(f"Remove {field.get('item_label', 'Item')}")
+                    remove_btn.setObjectName("btn-remove-item")
 
-                    def remove_item() -> None:
-                        for uniq in list(sub_inputs.keys()):
-                            self.state.pop(uniq, None)
+                    def do_remove() -> None:
                         pos = item_boxes.index(box)
+                        items.pop(pos)
                         vbox.removeWidget(box)
                         box.deleteLater()
                         item_boxes.pop(pos)
-                        item_inputs.pop(pos)
                         renumber()
                         on_change()
 
-                    remove_btn.clicked.connect(remove_item)
+                    remove_btn.clicked.connect(do_remove)
                     box_layout.addWidget(remove_btn)
 
                     item_boxes.append(box)
-                    item_inputs.append(sub_inputs)
                     vbox.addWidget(box)
                     on_change()
 
-                existing = self.state.get(name) or []
-                if existing:
-                    for item in existing:
-                        add_item(item)
+                if items:
+                    for itm in list(items):
+                        add_item(itm)
                 else:
-                    add_item()
+                    add_item({})
 
                 add_btn = QPushButton(f"Add Another {field.get('item_label', 'Item')}")
-                add_btn.clicked.connect(lambda: add_item())
+                add_btn.clicked.connect(lambda: add_item({}))
                 vbox.addWidget(add_btn)
 
                 layout.addWidget(container)
-                inputs[name] = {
-                    "type": "repeating_group",
-                    "items": item_inputs,
-                }
+                if field.get("show_if"):
+                    groups.append((container, field["show_if"]))
+                inputs[name] = {"type": "repeating_group"}
                 continue
 
 
@@ -221,6 +235,97 @@ class PageRenderer:
                 layout.addWidget(lab)
             layout.addWidget(widget)
             inputs[name] = {"type": ftype, "widget": widget}
+
+    def _render_repeating_subfield(
+        self,
+        group_name: str,
+        index: int,
+        sub_spec: Dict[str, Any],
+        layout: QVBoxLayout,
+        on_change: Callable[[], None],
+    ) -> None:
+        sub_name = sub_spec.get("name")
+        ftype = sub_spec.get("type")
+        label_text = sub_spec.get("label", sub_name)
+        data = self.state[group_name][index]
+
+        def set_value(val: Any) -> None:
+            data[sub_name] = val
+            on_change()
+
+        if ftype == "radio":
+            container = QWidget()
+            hl = QHBoxLayout(container)
+            lab = QLabel(label_text)
+            lab.setWordWrap(True)
+            hl.addWidget(lab)
+            group = QButtonGroup(container)
+            for opt in sub_spec.get("options", []):
+                rb = QRadioButton(opt)
+                if data.get(sub_name) == opt:
+                    rb.setChecked(True)
+                group.addButton(rb)
+                hl.addWidget(rb)
+                rb.toggled.connect(lambda checked, opt=opt: set_value(opt) if checked else None)
+            container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            layout.addWidget(container)
+            return
+
+        if ftype == "select":
+            widget = QComboBox()
+            opts = sub_spec.get("options") or []
+            if opts == "ISO_COUNTRIES":
+                opts = ISO_COUNTRIES
+            widget.addItems([""] + list(opts))
+            widget.setCurrentText(data.get(sub_name, ""))
+            widget.currentTextChanged.connect(lambda val: set_value(val))
+            widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        elif ftype == "text":
+            widget = QLineEdit()
+            widget.setText(data.get(sub_name, ""))
+            widget.textChanged.connect(lambda val: set_value(val))
+            widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        elif ftype == "number":
+            widget = QLineEdit()
+            widget.setText(data.get(sub_name, ""))
+            widget.textChanged.connect(lambda val: set_value(val))
+            widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        elif ftype == "date":
+            widget = QDateEdit()
+            widget.setDisplayFormat("yyyy-MM-dd")
+            widget.setCalendarPopup(True)
+            val = data.get(sub_name, "")
+            if val:
+                dt = QDate.fromString(val, "yyyy-MM-dd")
+                if dt.isValid():
+                    widget.setDate(dt)
+            widget.dateChanged.connect(lambda dt: set_value(dt.toString("yyyy-MM-dd")))
+            widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        elif ftype == "textarea":
+            widget = QTextEdit()
+            widget.setPlainText(data.get(sub_name, ""))
+            widget.textChanged.connect(lambda: set_value(widget.toPlainText()))
+            widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        elif ftype == "checkbox":
+            widget = QCheckBox(label_text)
+            widget.setChecked(bool(data.get(sub_name, False)))
+            widget.stateChanged.connect(lambda state: set_value(bool(state)))
+            label_text = ""
+            widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        else:
+            return
+
+        if label_text:
+            lab = QLabel(label_text)
+            lab.setWordWrap(True)
+            layout.addWidget(lab)
+        layout.addWidget(widget)
 
     def render_page_from_spec(
         self,

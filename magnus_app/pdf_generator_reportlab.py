@@ -389,11 +389,19 @@ def generate_pdf_report(form_data, output_path):
         # Dependents
         content.append(Paragraph("Dependents", heading_style))
         if dependents:
-            for i, dep in enumerate(dependents, 1):
-                content.append(Paragraph(f"Dependent {i}:", normal_style))
-                content.append(Paragraph(f"  Name: {dep.get('name', '[Not provided]')}", normal_style))
-                content.append(Paragraph(f"  Date of Birth: {dep.get('dob', '[Not provided]')}", normal_style))
-                content.append(Paragraph(f"  Relationship: {dep.get('relationship', '[Not provided]')}", normal_style))
+            table_data = [["Name", "Date of Birth", "Relationship"]]
+            for dep in dependents:
+                table_data.append([
+                    dep.get('name', 'Not provided') or 'Not provided',
+                    dep.get('dob', 'Not provided') or 'Not provided',
+                    dep.get('relationship', 'Not provided') or 'Not provided',
+                ])
+            table = Table(table_data, hAlign='LEFT')
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ]))
+            content.append(table)
         else:
             content.append(Paragraph("[No dependents specified]", normal_style))
         content.append(Spacer(1, 12))
@@ -401,13 +409,20 @@ def generate_pdf_report(form_data, output_path):
         # Beneficiaries
         content.append(Paragraph("Beneficiaries", heading_style))
         if beneficiaries:
-            for i, ben in enumerate(beneficiaries, 1):
-                content.append(Paragraph(f"Beneficiary {i}:", normal_style))
-                content.append(Paragraph(f"  Name: {ben.get('name', '[Not provided]')}", normal_style))
-                content.append(Paragraph(f"  Date of Birth: {ben.get('dob', '[Not provided]')}", normal_style))
-                content.append(Paragraph(f"  Relationship: {ben.get('relationship', '[Not provided]')}", normal_style))
-                percentage = ben.get('percentage', '')
-                content.append(Paragraph(f"  Percentage: {format_percentage(percentage)}", normal_style))
+            table_data = [["Name", "Date of Birth", "Relationship", "Allocation (%)"]]
+            for ben in beneficiaries:
+                table_data.append([
+                    ben.get('name', 'Not provided') or 'Not provided',
+                    ben.get('dob', 'Not provided') or 'Not provided',
+                    ben.get('relationship', 'Not provided') or 'Not provided',
+                    format_percentage(ben.get('percentage')),
+                ])
+            table = Table(table_data, hAlign='LEFT')
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ]))
+            content.append(table)
         else:
             content.append(Paragraph("[No beneficiaries specified]", normal_style))
         content.append(Spacer(1, 12))

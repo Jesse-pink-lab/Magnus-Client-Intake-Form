@@ -345,32 +345,7 @@ class MagnusClientIntakeForm(QMainWindow):
                 btn = info["group"].checkedButton()
                 values[name] = btn.text() if btn else ""
             elif ftype == "repeating_group":
-                items = []
-                for sub_inputs in info.get("items", []):
-                    item: Dict[str, Any] = {}
-                    for uniq, sinfo in sub_inputs.items():
-                        orig = sinfo.get("orig_name", uniq)
-                        stype = sinfo["type"]
-                        if stype == "radio":
-                            btn = sinfo["group"].checkedButton()
-                            val = btn.text() if btn else ""
-                        elif stype == "select":
-                            val = sinfo["widget"].currentText()
-                        elif stype in ("text", "number"):
-                            val = sinfo["widget"].text()
-                        elif stype == "date":
-                            val = sinfo["widget"].date().toString("yyyy-MM-dd")
-                        elif stype == "textarea":
-                            val = sinfo["widget"].toPlainText()
-                        elif stype == "checkbox":
-                            val = sinfo["widget"].isChecked()
-                        else:
-                            val = ""
-                        item[orig] = val
-                    # Only append if at least one field has data
-                    if any(v not in ("", False) for v in item.values()):
-                        items.append(item)
-                values[name] = items
+                values[name] = self.state.get(name, [])
             elif ftype == "select":
                 values[name] = info["widget"].currentText()
             elif ftype in ("text", "number"):
@@ -395,12 +370,24 @@ class MagnusClientIntakeForm(QMainWindow):
     def validate_current_page(self, index: int) -> bool:
         meta = self.pages[index]
         values = self.get_current_values(index)
+        merged = dict(self.state)
+        merged.update(values)
         valid = True
 
         for section in meta["spec"].get("sections", []):
-            for field in self.renderer.iterate_fields(section.get("fields", []), values):
+            for field in self.renderer.iterate_fields(section.get("fields", []), merged):
                 name = field.get("name")
-                value = values.get(name, "")
+                rg = field.get("_rg")
+                if rg:
+                    grp = rg["name"]
+                    i = rg["index"]
+                    value = merged.get(grp, [])
+                    if isinstance(value, list) and i < len(value):
+                        value = value[i].get(name, "")
+                    else:
+                        value = ""
+                else:
+                    value = values.get(name, "")
                 if field.get("required"):
                     if field["type"] == "checkbox":
                         if not value:
@@ -411,7 +398,7 @@ class MagnusClientIntakeForm(QMainWindow):
                     validator = VALIDATORS.get(field["validate"])
                     if validator:
                         try:
-                            if not validator(value, values):
+                            if not validator(value, merged):
                                 valid = False
                         except TypeError:
                             if not validator(value):
