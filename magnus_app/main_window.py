@@ -1,21 +1,19 @@
-from __future__ import annotations
-
 from typing import Any, Dict, List
 
 from PyQt6.QtWidgets import (
-    QHBoxLayout,
-    QMainWindow,
-    QProgressBar,
-    QPushButton,
-    QStackedWidget,
-    QVBoxLayout,
-    QWidget,
+    QHBoxLayout, QMainWindow, QProgressBar, QPushButton, QStackedWidget,
+    QVBoxLayout, QWidget, QScrollArea, QTextEdit, QLabel, QFileDialog, QMessageBox
 )
-
-from magnus_app.pages import PAGES
-from magnus_app.state import STATE_FILE, load_state, save_state
-from magnus_app.renderer import PageRenderer
-from magnus_app.validation import VALIDATORS
+from PyQt6.QtCore import Qt
+from .pages import PAGES
+from .state import STATE_FILE, load_state, save_state
+from .renderer import PageRenderer
+from .validation import VALIDATORS
+# PDF generator (optional)
+try:
+    from . import pdf_generator_reportlab as pdfgen
+except Exception:
+    pdfgen = None
 
 
 class MagnusClientIntakeForm(QMainWindow):
@@ -52,37 +50,172 @@ class MagnusClientIntakeForm(QMainWindow):
             self.stack.addWidget(page_widget)
             self.pages.append(meta)
 
+        # Append Review page to the stack
+        review = self._build_review_page()
+        self.stack.addWidget(review)
+
         self.update_progress()
         self.update_groups(0)
         self.validate_current_page(0)
 
     # ---------------------------------------------------------- NAVIGATION --
     def on_next(self) -> None:
-        if not self.validate_current_page(self.current_page):
-            return
-        self.state.update(self.get_current_values(self.current_page))
-        save_state(STATE_FILE, self.state)
-        if self.current_page < len(PAGES) - 1:
+        # still inside form pages
+        if self.current_page < len(self.pages):
+            if not self.validate_current_page(self.current_page):
+                return
+            self.state.update(self.get_current_values(self.current_page))
+            save_state(STATE_FILE, self.state)
             self.current_page += 1
             self.stack.setCurrentIndex(self.current_page)
+            if self.current_page == len(self.pages):  # just entered Review
+                self._refresh_review()
             self.update_progress()
-            self.update_groups(self.current_page)
-            self.validate_current_page(self.current_page)
+            if self.current_page < len(self.pages):
+                self.update_groups(self.current_page)
+                self.validate_current_page(self.current_page)
         else:
-            self.close()
+            # On Review page: buttons handle actions
+            pass
 
     def on_back(self) -> None:
-        self.state.update(self.get_current_values(self.current_page))
-        save_state(STATE_FILE, self.state)
         if self.current_page > 0:
+            if self.current_page <= len(self.pages) - 1:
+                self.state.update(self.get_current_values(self.current_page))
+                save_state(STATE_FILE, self.state)
             self.current_page -= 1
             self.stack.setCurrentIndex(self.current_page)
             self.update_progress()
-            self.update_groups(self.current_page)
-            self.validate_current_page(self.current_page)
+            if self.current_page < len(self.pages):
+                self.update_groups(self.current_page)
+                self.validate_current_page(self.current_page)
+
+    def _build_review_page(self) -> QWidget:
+        page = QWidget()
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(0,0,0,0)
+
+        title = QLabel("Review & Submit")
+        title.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        title.setStyleSheet("font-size: 20px; font-weight: 700; margin: 6px 2px;")
+        outer.addWidget(title)
+
+        area = QScrollArea()
+        area.setWidgetResizable(True)
+        outer.addWidget(area, 1)
+
+        inner = QWidget()
+        area.setWidget(inner)
+        v = QVBoxLayout(inner)
+
+        self._review_text = QTextEdit()
+        self._review_text.setReadOnly(True)
+        self._review_text.setMinimumHeight(360)
+        v.addWidget(self._review_text)
+
+        row = QHBoxLayout()
+        back_btn = QPushButton("← Back")
+        back_btn.clicked.connect(self.on_back)
+        row.addWidget(back_btn)
+
+        row.addStretch()
+
+        save_btn = QPushButton("Save Draft")
+        save_btn.clicked.connect(lambda: save_state(STATE_FILE, self.state))
+        row.addWidget(save_btn)
+
+        gen_btn = QPushButton("Generate PDF Report")
+        gen_btn.clicked.connect(self._generate_pdf)
+        row.addWidget(gen_btn)
+
+        outer.addLayout(row)
+        return page
+
+    def _refresh_review(self) -> None:
+        def get(name, default="Not provided"):
+            val = self.state.get(name)
+            if val is True:
+                return "Yes"
+            if val is False:
+                return "No"
+            return val if (val not in ("", None)) else default
+
+        html = f"""
+        <div style="font-family: Segoe UI,Inter,system-ui; color:#111827;">
+          <h3>— MAGNUS CLIENT INTAKE FORM — REVIEW —</h3>
+
+          <h4>PERSONAL INFORMATION</h4>
+          <p>
+            <b>Full Name:</b> {get('full_name')}<br/>
+            <b>Date of Birth:</b> {get('dob')}<br/>
+            <b>SSN:</b> {get('ssn')}<br/>
+            <b>Marital Status:</b> {get('marital_status')}
+          </p>
+
+          <h4>CONTACT INFORMATION</h4>
+          <p>
+            <b>Residential Address:</b> {get('address')}<br/>
+            <b>Email:</b> {get('email')}<br/>
+            <b>Mobile Phone:</b> {get('phone_mobile')}
+          </p>
+
+          <h4>EMPLOYMENT INFORMATION</h4>
+          <p>
+            <b>Status:</b> {get('employment_status')}<br/>
+            <b>Employer:</b> {get('employer_name')}<br/>
+            <b>Title:</b> {get('job_title')}
+          </p>
+
+          <h4>FINANCIAL INFORMATION</h4>
+          <p>
+            <b>Education:</b> {get('education')}<br/>
+            <b>Risk Tolerance:</b> {get('risk_tolerance')}<br/>
+            <b>Est. Net Worth:</b> {get('est_net_worth')}<br/>
+            <b>Est. Liquid Net Worth:</b> {get('est_liquid_net_worth')}
+          </p>
+
+          <h4>TRUSTED CONTACT</h4>
+          <p>
+            <b>Name:</b> {get('tcp_full_name')}<br/>
+            <b>Phone:</b> {get('tcp_phone')}<br/>
+            <b>Email:</b> {get('tcp_email')}
+          </p>
+
+          <h4>REGULATORY (highlights)</h4>
+          <p>
+            <b>Employee of this BD:</b> {get('employee_this_bd')}<br/>
+            <b>SRO Member:</b> {get('sro_member')}<br/>
+            <b>Foreign FI Account:</b> {get('has_ffi')}<br/>
+            <b>PEP:</b> {get('is_pep')}
+          </p>
+        </div>
+        """
+        self._review_text.setHtml(html)
+
+    def _generate_pdf(self) -> None:
+        if pdfgen is None or not hasattr(pdfgen, "generate"):
+            QMessageBox.warning(
+                self,
+                "PDF",
+                "PDF generator module not available.\n"
+                "Ensure magnus_app/pdf_generator_reportlab.py defines generate(state, path).",
+            )
+            return
+
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save PDF", "Magnus_Client_Intake_Form.pdf", "PDF Files (*.pdf)"
+        )
+        if not path:
+            return
+        try:
+            pdfgen.generate(self.state, path)
+            QMessageBox.information(self, "PDF", f"PDF generated successfully:\n{path}")
+        except Exception as e:
+            QMessageBox.critical(self, "PDF Error", f"Failed to generate PDF:\n{e}")
 
     def update_progress(self) -> None:
-        pct = round(((self.current_page + 1) / len(PAGES)) * 100)
+        total = len(self.pages) + 1  # +1 for Review page
+        pct = round(((self.current_page + 1) / total) * 100)
         self.progress.setValue(pct)
 
     # ------------------------------------------------------------- VALUES --
