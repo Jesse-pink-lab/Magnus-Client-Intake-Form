@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
 )
 
-from .pages import ISO_COUNTRIES, PAGES
+from magnus_app.pages import ISO_COUNTRIES, PAGES
 
 
 class PageRenderer:

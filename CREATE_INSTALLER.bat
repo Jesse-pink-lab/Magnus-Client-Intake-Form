@@ -16,18 +16,19 @@ echo.
 
 echo Step 2: Creating .exe file...
 if exist dist rd /s /q dist
-pyinstaller Magnus_Client_Intake_Form.spec
-if %errorlevel% neq 0 (
+pyinstaller --noconfirm --onefile --name Magnus_Client_Intake_Form ^
+  --icon ICON.ico ^
+  --collect-submodules PyQt6 --collect-data PyQt6 ^
+  --add-data "ui;ui" --add-data "magnus_app;magnus_app" ^
+  main_enhanced.py
+
+if exist "%~dp0dist\Magnus_Client_Intake_Form.exe" (
+    echo .exe file created successfully!
+) else (
     echo ERROR: Failed to create .exe file
-    echo Trying alternative method...
-    pyinstaller --onefile --windowed --icon=ICON.ico --name="Magnus_Client_Intake_Form" main_enhanced.py
-    if %errorlevel% neq 0 (
-        echo ERROR: Both methods failed
-        pause
-        exit /b 1
-    )
+    pause
+    exit /b 1
 )
-echo .exe file created successfully!
 echo.
 
 echo Step 3: Creating professional installer...
