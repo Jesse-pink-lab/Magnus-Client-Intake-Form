@@ -244,6 +244,61 @@ def generate_pdf_report(form_data, output_path):
             except Exception:
                 return safe(v)
 
+        # Normalize and derive fields from application state
+        investment_purposes = []
+        if form_data.get("inv_purpose_income"):
+            investment_purposes.append("Income")
+        if form_data.get("inv_purpose_growth_income"):
+            investment_purposes.append("Growth and Income")
+        if form_data.get("inv_purpose_cap_app"):
+            investment_purposes.append("Capital Appreciation")
+        if form_data.get("inv_purpose_speculation"):
+            investment_purposes.append("Speculation")
+        investment_purpose = ", ".join(investment_purposes)
+
+        objectives_map = [
+            ("obj_trading_profits_rank", "Trading Profits"),
+            ("obj_speculation_rank", "Speculation"),
+            ("obj_capital_app_rank", "Capital Appreciation"),
+            ("obj_income_rank", "Income"),
+            ("obj_preservation_rank", "Preservation of Capital"),
+        ]
+        investment_objective = "\n".join(
+            f"{label}: {form_data.get(key)}" for key, label in objectives_map if form_data.get(key)
+        )
+
+        dependents = form_data.get("dependents") or []
+        if not dependents and any(
+            form_data.get(k) for k in ("dep_full_name", "dep_dob", "dep_relationship")
+        ):
+            dependents = [
+                {
+                    "name": form_data.get("dep_full_name"),
+                    "dob": form_data.get("dep_dob"),
+                    "relationship": form_data.get("dep_relationship"),
+                }
+            ]
+
+        beneficiaries = form_data.get("beneficiaries") or []
+        if not beneficiaries and any(
+            form_data.get(k)
+            for k in ("ben_full_name", "ben_dob", "ben_relationship", "ben_allocation_pct")
+        ):
+            beneficiaries = [
+                {
+                    "name": form_data.get("ben_full_name"),
+                    "dob": form_data.get("ben_dob"),
+                    "relationship": form_data.get("ben_relationship"),
+                    "percentage": form_data.get("ben_allocation_pct"),
+                }
+            ]
+
+        # Trusted contact uses tcp_* keys in state
+        form_data.setdefault("trusted_full_name", form_data.get("tcp_full_name"))
+        form_data.setdefault("trusted_relationship", form_data.get("tcp_relationship"))
+        form_data.setdefault("trusted_phone", form_data.get("tcp_phone"))
+        form_data.setdefault("trusted_email", form_data.get("tcp_email"))
+
         # Start building the content
         content = []
 
@@ -265,45 +320,43 @@ def generate_pdf_report(form_data, output_path):
         content.append(Paragraph(f"Full Name: {form_data.get('full_name', '[Not provided]')}", normal_style))
         content.append(Paragraph(f"Date of Birth: {form_data.get('dob', '[Not provided]')}", normal_style))
         content.append(Paragraph(f"Social Security Number: {form_data.get('ssn', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Citizenship: {form_data.get('citizenship', '[Not provided]')}", normal_style))
+        content.append(Paragraph(f"Citizenship: {form_data.get('citizenship_status', '[Not provided]')}", normal_style))
         content.append(Paragraph(f"Marital Status: {form_data.get('marital_status', '[Not provided]')}", normal_style))
         content.append(Spacer(1, 12))
         
         # Contact Information
         content.append(Paragraph("Contact Information", heading_style))
-        content.append(Paragraph(f"Residential Address: {form_data.get('residential_address', '[Not provided]')}", normal_style))
+        content.append(Paragraph(f"Residential Address: {form_data.get('address', '[Not provided]')}", normal_style))
         content.append(Paragraph(f"Email: {form_data.get('email', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Home Phone: {form_data.get('home_phone', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Mobile Phone: {form_data.get('mobile_phone', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Work Phone: {form_data.get('work_phone', '[Not provided]')}", normal_style))
+        content.append(Paragraph(f"Home Phone: {form_data.get('phone_home', '[Not provided]')}", normal_style))
+        content.append(Paragraph(f"Mobile Phone: {form_data.get('phone_mobile', '[Not provided]')}", normal_style))
+        content.append(Paragraph(f"Work Phone: {form_data.get('phone_work', '[Not provided]')}", normal_style))
         content.append(Spacer(1, 12))
         
         # Employment Information
         content.append(Paragraph("Employment Information", heading_style))
         content.append(Paragraph(f"Employment Status: {form_data.get('employment_status', '[Not provided]')}", normal_style))
         content.append(Paragraph(f"Employer Name: {form_data.get('employer_name', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Occupation: {form_data.get('occupation', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Years Employed: {form_data.get('years_employed', '[Not provided]')}", normal_style))
+        content.append(Paragraph(f"Occupation: {form_data.get('job_title', '[Not provided]')}", normal_style))
+        content.append(Paragraph(f"Years Employed: {form_data.get('years_with_employer', '[Not provided]')}", normal_style))
         content.append(Paragraph(f"Annual Income: {format_money(form_data.get('annual_income'))}", normal_style))
         content.append(Spacer(1, 12))
 
         # Financial Information
         content.append(Paragraph("Financial Information", heading_style))
-        content.append(Paragraph(f"Education Status: {form_data.get('education_status', '[Not provided]')}", normal_style))
+        content.append(Paragraph(f"Education Status: {form_data.get('education', '[Not provided]')}", normal_style))
         content.append(Paragraph(f"Estimated Tax Bracket: {form_data.get('tax_bracket', '[Not provided]')}", normal_style))
         content.append(Paragraph(f"Investment Risk Tolerance: {form_data.get('risk_tolerance', '[Not provided]')}", normal_style))
         
         # Investment Purpose
-        investment_purpose = form_data.get('investment_purpose')
         if investment_purpose:
             content.append(Paragraph("Investment Purpose:", normal_style))
-            for purpose in investment_purpose.split(', '):
-                content.append(Paragraph(f"• {purpose}", normal_style))
+            for purpose in investment_purpose.split(','):
+                content.append(Paragraph(f"• {purpose.strip()}", normal_style))
         else:
             content.append(Paragraph("Investment Purpose: [Not provided]", normal_style))
         
         # Investment Objectives
-        investment_objective = form_data.get('investment_objective')
         if investment_objective:
             content.append(Paragraph("Investment Objectives:", normal_style))
             for objective in investment_objective.split('\n'):
@@ -311,25 +364,24 @@ def generate_pdf_report(form_data, output_path):
         else:
             content.append(Paragraph("Investment Objectives: [Not provided]", normal_style))
         
-        content.append(Paragraph(f"Net Worth: {format_money(form_data.get('net_worth'))}", normal_style))
-        content.append(Paragraph(f"Liquid Net Worth: {format_money(form_data.get('liquid_net_worth'))}", normal_style))
+        content.append(Paragraph(f"Net Worth: {format_money(form_data.get('est_net_worth'))}", normal_style))
+        content.append(Paragraph(f"Liquid Net Worth: {format_money(form_data.get('est_liquid_net_worth'))}", normal_style))
         content.append(Paragraph(f"Assets Held Away: {format_money(form_data.get('assets_held_away'))}", normal_style))
         content.append(Spacer(1, 12))
 
         # Spouse Information
-        if not form_data.get('spouse_applicable'):
+        if not form_data.get('no_spouse'):
             content.append(Paragraph("Spouse Information", heading_style))
             content.append(Paragraph(f"Full Name: {form_data.get('spouse_full_name', '[Not provided]')}", normal_style))
             content.append(Paragraph(f"Date of Birth: {form_data.get('spouse_dob', '[Not provided]')}", normal_style))
             content.append(Paragraph(f"Social Security Number: {form_data.get('spouse_ssn', '[Not provided]')}", normal_style))
             content.append(Paragraph(f"Employment Status: {form_data.get('spouse_employment_status', '[Not provided]')}", normal_style))
             content.append(Paragraph(f"Employer Name: {form_data.get('spouse_employer_name', '[Not provided]')}", normal_style))
-            content.append(Paragraph(f"Occupation: {form_data.get('spouse_occupation', '[Not provided]')}", normal_style))
+            content.append(Paragraph(f"Occupation: {form_data.get('spouse_job_title', '[Not provided]')}", normal_style))
             content.append(Spacer(1, 12))
 
         # Dependents
         content.append(Paragraph("Dependents", heading_style))
-        dependents = form_data.get('dependents', [])
         if dependents:
             for i, dep in enumerate(dependents, 1):
                 content.append(Paragraph(f"Dependent {i}:", normal_style))
@@ -342,7 +394,6 @@ def generate_pdf_report(form_data, output_path):
 
         # Beneficiaries
         content.append(Paragraph("Beneficiaries", heading_style))
-        beneficiaries = form_data.get('beneficiaries', [])
         if beneficiaries:
             for i, ben in enumerate(beneficiaries, 1):
                 content.append(Paragraph(f"Beneficiary {i}:", normal_style))
@@ -371,22 +422,27 @@ def generate_pdf_report(form_data, output_path):
 
         # Investment Experience
         content.append(Paragraph("Investment Experience", heading_style))
-        experience_types = [
-            "Stocks", "Bonds", "Mutual Funds", "UITs", 
-            "Annuities (Fixed)", "Annuities (Variable)", "Options", 
-            "Commodities", "Alternative Investments", "Limited Partnerships", 
-            "Variable Contracts"
+        asset_map = [
+            ("Stocks", "stocks"),
+            ("Bonds", "bonds"),
+            ("Mutual Funds", "mutual_funds"),
+            ("UITs", "uits"),
+            ("Annuities (Fixed)", "annuities_fixed"),
+            ("Annuities (Variable)", "annuities_variable"),
+            ("Options", "options"),
+            ("Commodities", "commodities"),
+            ("Alternative Investments", "alternative_investments"),
+            ("Limited Partnerships", "limited_partnerships"),
+            ("Variable Contracts", "variable_contracts"),
         ]
-        for exp_type in experience_types:
-            year_field = f"asset_experience_{exp_type.lower().replace(' ', '_').replace('(', '').replace(')', '')}_year"
-            level_field = f"asset_experience_{exp_type.lower().replace(' ', '_').replace('(', '').replace(')', '')}_level"
-            
-            year = form_data.get(year_field)
-            level = form_data.get(level_field)
-            
-            content.append(Paragraph(f"{exp_type}:", normal_style))
-            content.append(Paragraph(f"  Year Started: {year or '[Not provided]'}", normal_style))
-            content.append(Paragraph(f"  Experience Level: {level or '[Not provided]'}", normal_style))
+        for label, key in asset_map:
+            year = form_data.get(f"{key}_year_started") or "[Not provided]"
+            level = form_data.get(f"{key}_level") or "[Not provided]"
+            content.append(
+                Paragraph(
+                    f"{label} – Year Started: {year}, Level: {level}", normal_style
+                )
+            )
         content.append(Spacer(1, 12))
 
         # Broker-Dealer Relationships
@@ -500,7 +556,7 @@ def generate_pdf_report(form_data, output_path):
         )
 
         # Outside Broker Information
-        if form_data.get('has_outside_broker'):
+        if form_data.get('outside_broker_assets'):
             content.append(Paragraph("Outside Broker Information", heading_style))
             content.append(Paragraph(f"Broker Firm Name: {form_data.get('outside_firm_name', '[Not provided]')}", normal_style))
             content.append(Paragraph(f"Account Type: {form_data.get('outside_broker_account_type', '[Not provided]')}", normal_style))
