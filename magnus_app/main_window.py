@@ -304,6 +304,7 @@ class MagnusClientIntakeForm(QMainWindow):
 
           <h4>REGULATORY (highlights)</h4>
           <p>
+            <b>Electronic Delivery Consent:</b> {get('electronic_delivery_consent')}<br/>
             <b>Employee of this BD:</b> {get('employee_this_bd')}<br/>
             <b>SRO Member:</b> {get('sro_member')}<br/>
             <b>Foreign FI Account:</b> {get('has_ffi')}<br/>
@@ -343,6 +344,33 @@ class MagnusClientIntakeForm(QMainWindow):
             if ftype == "radio":
                 btn = info["group"].checkedButton()
                 values[name] = btn.text() if btn else ""
+            elif ftype == "repeating_group":
+                items = []
+                for sub_inputs in info.get("items", []):
+                    item: Dict[str, Any] = {}
+                    for uniq, sinfo in sub_inputs.items():
+                        orig = sinfo.get("orig_name", uniq)
+                        stype = sinfo["type"]
+                        if stype == "radio":
+                            btn = sinfo["group"].checkedButton()
+                            val = btn.text() if btn else ""
+                        elif stype == "select":
+                            val = sinfo["widget"].currentText()
+                        elif stype in ("text", "number"):
+                            val = sinfo["widget"].text()
+                        elif stype == "date":
+                            val = sinfo["widget"].date().toString("yyyy-MM-dd")
+                        elif stype == "textarea":
+                            val = sinfo["widget"].toPlainText()
+                        elif stype == "checkbox":
+                            val = sinfo["widget"].isChecked()
+                        else:
+                            val = ""
+                        item[orig] = val
+                    # Only append if at least one field has data
+                    if any(v not in ("", False) for v in item.values()):
+                        items.append(item)
+                values[name] = items
             elif ftype == "select":
                 values[name] = info["widget"].currentText()
             elif ftype in ("text", "number"):

@@ -330,25 +330,24 @@ PAGES: List[Dict[str, Any]] = [
                 'title': 'Dependents',
                 'fields': [
                     {
-                        'type': 'group',
-                        'name': 'dependent_block',
-
-                        'show_if': {'dependent_block': ''},
+                        'name': 'dependents',
+                        'type': 'repeating_group',
+                        'item_label': 'Dependent',
                         'fields': [
                             {
-                                'name': 'dep_full_name',
+                                'name': 'name',
                                 'type': 'text',
-                                'label': 'Dependent Full Name',
+                                'label': 'Full Name',
                                 'required': False,
                             },
                             {
-                                'name': 'dep_dob',
+                                'name': 'dob',
                                 'type': 'date',
-                                'label': 'Dependent Date of Birth',
+                                'label': 'Date of Birth',
                                 'required': False,
                             },
                             {
-                                'name': 'dep_relationship',
+                                'name': 'relationship',
                                 'type': 'text',
                                 'label': 'Relationship',
                                 'required': False,
@@ -367,31 +366,30 @@ PAGES: List[Dict[str, Any]] = [
                 'title': 'Beneficiaries',
                 'fields': [
                     {
-                        'type': 'group',
-                        'name': 'beneficiary_block',
-
-                        'show_if': {'beneficiary_block': ''},
+                        'name': 'beneficiaries',
+                        'type': 'repeating_group',
+                        'item_label': 'Beneficiary',
                         'fields': [
                             {
-                                'name': 'ben_full_name',
+                                'name': 'name',
                                 'type': 'text',
-                                'label': 'Beneficiary Full Name',
+                                'label': 'Full Name',
                                 'required': False,
                             },
                             {
-                                'name': 'ben_dob',
+                                'name': 'dob',
                                 'type': 'date',
-                                'label': 'Beneficiary Date of Birth',
+                                'label': 'Date of Birth',
                                 'required': False,
                             },
                             {
-                                'name': 'ben_relationship',
+                                'name': 'relationship',
                                 'type': 'text',
                                 'label': 'Relationship',
                                 'required': False,
                             },
                             {
-                                'name': 'ben_allocation_pct',
+                                'name': 'percentage',
                                 'type': 'number',
                                 'label': 'Allocation Percentage (%)',
                                 'required': False,
@@ -427,6 +425,7 @@ PAGES: List[Dict[str, Any]] = [
             {
                 'title': 'Investment Experience by Asset Type',
                 'fields': [
+                    {'name': 'label_stocks', 'type': 'label', 'label': 'Stocks'},
                     {
                         'name': 'stocks_year_started',
                         'type': 'text',
@@ -440,6 +439,7 @@ PAGES: List[Dict[str, Any]] = [
                         'required': False,
                         'options': ['None', 'Limited', 'Good', 'Extensive'],
                     },
+                    {'name': 'label_bonds', 'type': 'label', 'label': 'Bonds'},
                     {
                         'name': 'bonds_year_started',
                         'type': 'text',
@@ -453,6 +453,7 @@ PAGES: List[Dict[str, Any]] = [
                         'required': False,
                         'options': ['None', 'Limited', 'Good', 'Extensive'],
                     },
+                    {'name': 'label_mutual_funds', 'type': 'label', 'label': 'Mutual Funds'},
                     {
                         'name': 'mutual_funds_year_started',
                         'type': 'text',
@@ -466,6 +467,7 @@ PAGES: List[Dict[str, Any]] = [
                         'required': False,
                         'options': ['None', 'Limited', 'Good', 'Extensive'],
                     },
+                    {'name': 'label_uits', 'type': 'label', 'label': 'UITs'},
                     {
                         'name': 'uits_year_started',
                         'type': 'text',
@@ -479,6 +481,7 @@ PAGES: List[Dict[str, Any]] = [
                         'required': False,
                         'options': ['None', 'Limited', 'Good', 'Extensive'],
                     },
+                    {'name': 'label_annuities_fixed', 'type': 'label', 'label': 'Annuities (Fixed)'},
                     {
                         'name': 'annuities_fixed_year_started',
                         'type': 'text',
@@ -492,6 +495,7 @@ PAGES: List[Dict[str, Any]] = [
                         'required': False,
                         'options': ['None', 'Limited', 'Good', 'Extensive'],
                     },
+                    {'name': 'label_annuities_variable', 'type': 'label', 'label': 'Annuities (Variable)'},
                     {
                         'name': 'annuities_variable_year_started',
                         'type': 'text',
@@ -505,6 +509,7 @@ PAGES: List[Dict[str, Any]] = [
                         'required': False,
                         'options': ['None', 'Limited', 'Good', 'Extensive'],
                     },
+                    {'name': 'label_options', 'type': 'label', 'label': 'Options'},
                     {
                         'name': 'options_year_started',
                         'type': 'text',
@@ -518,6 +523,7 @@ PAGES: List[Dict[str, Any]] = [
                         'required': False,
                         'options': ['None', 'Limited', 'Good', 'Extensive'],
                     },
+                    {'name': 'label_commodities', 'type': 'label', 'label': 'Commodities'},
                     {
                         'name': 'commodities_year_started',
                         'type': 'text',
@@ -531,6 +537,7 @@ PAGES: List[Dict[str, Any]] = [
                         'required': False,
                         'options': ['None', 'Limited', 'Good', 'Extensive'],
                     },
+                    {'name': 'label_alternative_investments', 'type': 'label', 'label': 'Alternative Investments'},
                     {
                         'name': 'alternative_investments_year_started',
                         'type': 'text',
@@ -544,6 +551,7 @@ PAGES: List[Dict[str, Any]] = [
                         'required': False,
                         'options': ['None', 'Limited', 'Good', 'Extensive'],
                     },
+                    {'name': 'label_limited_partnerships', 'type': 'label', 'label': 'Limited Partnerships'},
                     {
                         'name': 'limited_partnerships_year_started',
                         'type': 'text',
@@ -557,6 +565,7 @@ PAGES: List[Dict[str, Any]] = [
                         'required': False,
                         'options': ['None', 'Limited', 'Good', 'Extensive'],
                     },
+                    {'name': 'label_variable_contracts', 'type': 'label', 'label': 'Variable Contracts'},
                     {
                         'name': 'variable_contracts_year_started',
                         'type': 'text',
@@ -605,6 +614,24 @@ PAGES: List[Dict[str, Any]] = [
                         'label': 'Email Address',
                         'required': False,
                     },
+                ],
+            }
+        ],
+    },
+    {
+        'key': 'reg_consent',
+        'title': 'Regulatory Consent',
+        'sections': [
+            {
+                'title': 'Electronic Delivery',
+                'fields': [
+                    {
+                        'name': 'electronic_delivery_consent',
+                        'type': 'radio',
+                        'label': 'Do you consent to electronic delivery of documents?',
+                        'required': True,
+                        'options': ['Yes', 'No'],
+                    }
                 ],
             }
         ],

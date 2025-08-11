@@ -144,17 +144,23 @@ def save_draft_word(form_data, output_path):
         
         # Investment Experience
         doc.add_heading('Investment Experience', level=1)
-        experience_types = ["Stocks", "Bonds", "Mutual Funds", "ETFs", "Options", "Futures"]
-        for exp_type in experience_types:
-            year_field = f"asset_experience_{exp_type.lower().replace(' ', '_')}_year"
-            level_field = f"asset_experience_{exp_type.lower().replace(' ', '_')}_level"
-            
-            year = form_data.get(year_field)
-            level = form_data.get(level_field)
-            
-            doc.add_paragraph(f"{exp_type}:")
-            doc.add_paragraph(f"  Year Started: {year if year else '[Not provided]'}")
-            doc.add_paragraph(f"  Experience Level: {level if level else '[Not provided]'}")
+        asset_map = [
+            ("Stocks", "stocks"),
+            ("Bonds", "bonds"),
+            ("Mutual Funds", "mutual_funds"),
+            ("UITs", "uits"),
+            ("Annuities (Fixed)", "annuities_fixed"),
+            ("Annuities (Variable)", "annuities_variable"),
+            ("Options", "options"),
+            ("Commodities", "commodities"),
+            ("Alternative Investments", "alternative_investments"),
+            ("Limited Partnerships", "limited_partnerships"),
+            ("Variable Contracts", "variable_contracts"),
+        ]
+        for label, key in asset_map:
+            year = form_data.get(f"{key}_year_started")
+            level = form_data.get(f"{key}_level")
+            doc.add_paragraph(f"{label} – Year Started: {year if year else '[Not provided]'}, Level: {level if level else '[Not provided]'}")
             doc.add_paragraph()
         
         # Outside Broker Information
@@ -175,7 +181,7 @@ def save_draft_word(form_data, output_path):
         
         # Regulatory Consent
         doc.add_heading('Regulatory Consent', level=1)
-        electronic_consent = "Yes" if form_data.get("electronic_regulatory_yes", False) else "No"
+        electronic_consent = form_data.get("electronic_delivery_consent", "No") or "No"
         doc.add_paragraph(f"Electronic Delivery Consent: {electronic_consent}")
         
         # Save document
@@ -574,7 +580,7 @@ def generate_pdf_report(form_data, output_path):
 
         # Regulatory Consent
         content.append(Paragraph("Regulatory Consent", heading_style))
-        electronic_consent = "Yes" if form_data.get('electronic_regulatory_yes') else "No"
+        electronic_consent = form_data.get('electronic_delivery_consent', 'No') or 'No'
         content.append(Paragraph(f"Electronic Delivery Consent: {electronic_consent}", normal_style))
         
         # Add page numbers

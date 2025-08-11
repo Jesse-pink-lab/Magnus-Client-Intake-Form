@@ -34,12 +34,17 @@ class PageRenderer:
     def iterate_fields(self, fields: List[Dict[str, Any]], values: Dict[str, Any]):
         """Yield field specs that should be validated based on show_if rules."""
         for fld in fields:
-            if fld.get("type") == "group":
+            ftype = fld.get("type")
+            if ftype in ("group", "repeating_group"):
+                # Groups (including repeating groups) may be conditionally shown
                 cond = fld.get("show_if") or {}
-                name, val = next(iter(cond.items()))
-                if values.get(name, "") == val:
-                    yield from self.iterate_fields(fld["fields"], values)
-            else:
+                if cond:
+                    name, val = next(iter(cond.items()))
+                    if values.get(name, "") != val:
+                        continue
+                # For validation we simply iterate over the child field specs
+                yield from self.iterate_fields(fld.get("fields", []), values)
+            elif ftype != "label":
                 cond = fld.get("show_if")
                 if cond:
                     name, val = next(iter(cond.items()))
@@ -57,7 +62,9 @@ class PageRenderer:
         on_change: Callable[[], None],
     ) -> None:
         for field in fields:
-            if field.get("type") == "group":
+            ftype = field.get("type")
+            name = field.get("name")
+            if ftype == "group":
                 container = QWidget()
                 container_layout = QVBoxLayout(container)
                 self.render_fields(field["fields"], container_layout, inputs, groups, on_change)
@@ -65,10 +72,57 @@ class PageRenderer:
                 groups.append((container, field["show_if"]))
                 continue
 
-            ftype = field.get("type")
-            name = field.get("name")
+            if ftype == "repeating_group" and name:
+                container = QWidget()
+                vbox = QVBoxLayout(container)
+                item_inputs: List[Dict[str, Dict[str, Any]]] = []
+
+                def add_item(data: Dict[str, Any] | None = None) -> None:
+                    idx = len(item_inputs)
+                    box = QGroupBox(f"{field.get('item_label', 'Item')} {idx + 1}")
+                    box_layout = QVBoxLayout(box)
+                    sub_inputs: Dict[str, Dict[str, Any]] = {}
+                    for sub in field.get("fields", []):
+                        sub_name = sub.get("name")
+                        unique = f"{name}_{idx}_{sub_name}"
+                        sub_spec = dict(sub)
+                        sub_spec["name"] = unique
+                        # Pre-fill state if data provided
+                        if data:
+                            self.state[unique] = data.get(sub_name, "")
+                        self.render_fields([sub_spec], box_layout, sub_inputs, groups, on_change)
+                        # Remember original name for later extraction
+                        if unique in sub_inputs:
+                            sub_inputs[unique]["orig_name"] = sub_name
+                    item_inputs.append(sub_inputs)
+                    vbox.addWidget(box)
+
+                existing = self.state.get(name) or []
+                if existing:
+                    for item in existing:
+                        add_item(item)
+                else:
+                    add_item()
+
+                add_btn = QPushButton(f"Add Another {field.get('item_label', 'Item')}")
+                add_btn.clicked.connect(lambda: add_item())
+                vbox.addWidget(add_btn)
+
+                layout.addWidget(container)
+                inputs[name] = {
+                    "type": "repeating_group",
+                    "items": item_inputs,
+                }
+                continue
+
             label_text = field.get("label", name)
             widget: QWidget
+
+            if ftype == "label":
+                lab = QLabel(label_text)
+                lab.setWordWrap(True)
+                layout.addWidget(lab)
+                continue
 
             if ftype == "radio":
                 container = QWidget()
