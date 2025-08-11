@@ -62,7 +62,9 @@ class PageRenderer:
         on_change: Callable[[], None],
     ) -> None:
         for field in fields:
-            if field.get("type") == "group":
+            ftype = field.get("type")
+            name = field.get("name")
+            if ftype == "group":
                 container = QWidget()
                 container_layout = QVBoxLayout(container)
                 self.render_fields(field["fields"], container_layout, inputs, groups, on_change)
@@ -70,7 +72,11 @@ class PageRenderer:
                 groups.append((container, field["show_if"]))
                 continue
 
+
+            if ftype == "repeating_group" and name:
+
             if field.get("type") == "repeating_group":
+
                 container = QWidget()
                 vbox = QVBoxLayout(container)
                 item_inputs: List[Dict[str, Dict[str, Any]]] = []
@@ -112,6 +118,7 @@ class PageRenderer:
                     "items": item_inputs,
                 }
                 continue
+
 
             ftype = field.get("type")
             name = field.get("name")
