@@ -75,9 +75,14 @@ class PageRenderer:
                 container = QWidget()
                 vbox = QVBoxLayout(container)
                 item_inputs: List[Dict[str, Dict[str, Any]]] = []
+                item_boxes: List[QGroupBox] = []
+
+                def renumber() -> None:
+                    for i, box in enumerate(item_boxes):
+                        box.setTitle(f"{field.get('item_label', 'Item')} {i + 1}")
 
                 def add_item(data: Dict[str, Any] | None = None) -> None:
-                    idx = len(item_inputs)
+                    idx = len(item_boxes)
                     box = QGroupBox(f"{field.get('item_label', 'Item')} {idx + 1}")
                     box_layout = QVBoxLayout(box)
                     sub_inputs: Dict[str, Dict[str, Any]] = {}
@@ -86,61 +91,32 @@ class PageRenderer:
                         unique = f"{name}_{idx}_{sub_name}"
                         sub_spec = dict(sub)
                         sub_spec["name"] = unique
-                        # Pre-fill state if data provided
                         if data:
                             self.state[unique] = data.get(sub_name, "")
                         self.render_fields([sub_spec], box_layout, sub_inputs, groups, on_change)
-                        # Remember original name for later extraction
                         if unique in sub_inputs:
                             sub_inputs[unique]["orig_name"] = sub_name
+
+                    remove_btn = QPushButton(f"Remove {field.get('item_label', 'Item')}")
+
+                    def remove_item() -> None:
+                        for uniq in list(sub_inputs.keys()):
+                            self.state.pop(uniq, None)
+                        pos = item_boxes.index(box)
+                        vbox.removeWidget(box)
+                        box.deleteLater()
+                        item_boxes.pop(pos)
+                        item_inputs.pop(pos)
+                        renumber()
+                        on_change()
+
+                    remove_btn.clicked.connect(remove_item)
+                    box_layout.addWidget(remove_btn)
+
+                    item_boxes.append(box)
                     item_inputs.append(sub_inputs)
                     vbox.addWidget(box)
-
-                existing = self.state.get(name) or []
-                if existing:
-                    for item in existing:
-                        add_item(item)
-                else:
-                    add_item()
-
-                add_btn = QPushButton(f"Add Another {field.get('item_label', 'Item')}")
-                add_btn.clicked.connect(lambda: add_item())
-                vbox.addWidget(add_btn)
-
-                layout.addWidget(container)
-                inputs[name] = {
-                    "type": "repeating_group",
-                    "items": item_inputs,
-                }
-                continue
-
-            if ftype == "repeating_group" and name:
-
-            if field.get("type") == "repeating_group":
-
-                container = QWidget()
-                vbox = QVBoxLayout(container)
-                item_inputs: List[Dict[str, Dict[str, Any]]] = []
-
-                def add_item(data: Dict[str, Any] | None = None) -> None:
-                    idx = len(item_inputs)
-                    box = QGroupBox(f"{field.get('item_label', 'Item')} {idx + 1}")
-                    box_layout = QVBoxLayout(box)
-                    sub_inputs: Dict[str, Dict[str, Any]] = {}
-                    for sub in field.get("fields", []):
-                        sub_name = sub.get("name")
-                        unique = f"{name}_{idx}_{sub_name}"
-                        sub_spec = dict(sub)
-                        sub_spec["name"] = unique
-                        # Pre-fill state if data provided
-                        if data:
-                            self.state[unique] = data.get(sub_name, "")
-                        self.render_fields([sub_spec], box_layout, sub_inputs, groups, on_change)
-                        # Remember original name for later extraction
-                        if unique in sub_inputs:
-                            sub_inputs[unique]["orig_name"] = sub_name
-                    item_inputs.append(sub_inputs)
-                    vbox.addWidget(box)
+                    on_change()
 
                 existing = self.state.get(name) or []
                 if existing:
