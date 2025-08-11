@@ -71,7 +71,48 @@ class PageRenderer:
                 layout.addWidget(container)
                 groups.append((container, field["show_if"]))
                 continue
+            elif ftype == "repeating_group" and name:
+                container = QWidget()
+                vbox = QVBoxLayout(container)
+                item_inputs: List[Dict[str, Dict[str, Any]]] = []
 
+                def add_item(data: Dict[str, Any] | None = None) -> None:
+                    idx = len(item_inputs)
+                    box = QGroupBox(f"{field.get('item_label', 'Item')} {idx + 1}")
+                    box_layout = QVBoxLayout(box)
+                    sub_inputs: Dict[str, Dict[str, Any]] = {}
+                    for sub in field.get("fields", []):
+                        sub_name = sub.get("name")
+                        unique = f"{name}_{idx}_{sub_name}"
+                        sub_spec = dict(sub)
+                        sub_spec["name"] = unique
+                        # Pre-fill state if data provided
+                        if data:
+                            self.state[unique] = data.get(sub_name, "")
+                        self.render_fields([sub_spec], box_layout, sub_inputs, groups, on_change)
+                        # Remember original name for later extraction
+                        if unique in sub_inputs:
+                            sub_inputs[unique]["orig_name"] = sub_name
+                    item_inputs.append(sub_inputs)
+                    vbox.addWidget(box)
+
+                existing = self.state.get(name) or []
+                if existing:
+                    for item in existing:
+                        add_item(item)
+                else:
+                    add_item()
+
+                add_btn = QPushButton(f"Add Another {field.get('item_label', 'Item')}")
+                add_btn.clicked.connect(lambda: add_item())
+                vbox.addWidget(add_btn)
+
+                layout.addWidget(container)
+                inputs[name] = {
+                    "type": "repeating_group",
+                    "items": item_inputs,
+                }
+                continue
 
             if ftype == "repeating_group" and name:
 
