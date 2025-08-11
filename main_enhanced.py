@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Data-driven wizard for the Magnus Client Intake Form.
 
-This simplified PyQt implementation focuses on the regulatory portions of the
-form.  The wizard is driven by a central ``PAGES`` specification which defines
-pages, sections and fields.  Field widgets are generated at runtime and are
-validated using validators from :mod:`validation`.
+PyQt6 implementation focusing on the regulatory portions of the form.
+The wizard is driven by a central PAGES specification which defines
+pages, sections and fields. Field widgets are generated at runtime and
+are validated using validators from :mod:`validation`.
 """
 from __future__ import annotations
 
@@ -83,35 +83,24 @@ PAGES: List[Dict[str, Any]] = [
                                 "label": "Employee Name",
                                 "type": "text",
                                 "required": True,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "department",
                                 "label": "Department",
                                 "type": "text",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "branch",
                                 "label": "Branch",
                                 "type": "text",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "start_date",
                                 "label": "Start Date",
                                 "type": "date",
                                 "required": True,
-                                "options": None,
-                                "show_if": None,
                                 "validate": "iso_date",
                             },
                         ],
@@ -132,33 +121,19 @@ PAGES: List[Dict[str, Any]] = [
                                 "label": "Employee Name",
                                 "type": "text",
                                 "required": True,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "relationship",
                                 "label": "Relationship",
                                 "type": "select",
                                 "required": True,
-                                "options": [
-                                    "Spouse",
-                                    "Parent",
-                                    "Child",
-                                    "Sibling",
-                                    "Other",
-                                ],
-                                "show_if": None,
-                                "validate": None,
+                                "options": ["Spouse", "Parent", "Child", "Sibling", "Other"],
                             },
                             {
                                 "name": "branch_related",
                                 "label": "Branch",
                                 "type": "text",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                         ],
                     },
@@ -178,17 +153,12 @@ PAGES: List[Dict[str, Any]] = [
                                 "label": "Firm Name",
                                 "type": "text",
                                 "required": True,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "crd_other",
                                 "label": "CRD #",
                                 "type": "text",
                                 "required": True,
-                                "options": None,
-                                "show_if": None,
                                 "validate": "crd",
                             },
                             {
@@ -196,17 +166,12 @@ PAGES: List[Dict[str, Any]] = [
                                 "label": "Role",
                                 "type": "text",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "start_date_other",
                                 "label": "Start Date",
                                 "type": "date",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
                                 "validate": "iso_date",
                             },
                         ],
@@ -227,38 +192,23 @@ PAGES: List[Dict[str, Any]] = [
                                 "label": "Firm Name",
                                 "type": "text",
                                 "required": True,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "employee_name_rel",
                                 "label": "Employee Name",
                                 "type": "text",
                                 "required": True,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "relationship_rel",
                                 "label": "Relationship",
                                 "type": "select",
                                 "required": True,
-                                "options": [
-                                    "Spouse",
-                                    "Parent",
-                                    "Child",
-                                    "Sibling",
-                                    "Other",
-                                ],
-                                "show_if": None,
-                                "validate": None,
+                                "options": ["Spouse", "Parent", "Child", "Sibling", "Other"],
                             },
                         ],
                     },
                 ],
-
             }
         ],
     },
@@ -286,16 +236,12 @@ PAGES: List[Dict[str, Any]] = [
                                 "type": "select",
                                 "required": True,
                                 "options": ["FINRA", "NYSE", "NASDAQ", "Other"],
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "sro_crd",
                                 "label": "CRD #",
                                 "type": "text",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
                                 "validate": "crd",
                             },
                             {
@@ -303,9 +249,6 @@ PAGES: List[Dict[str, Any]] = [
                                 "label": "Branch",
                                 "type": "text",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                         ],
                     },
@@ -325,17 +268,12 @@ PAGES: List[Dict[str, Any]] = [
                                 "label": "Company Name",
                                 "type": "text",
                                 "required": True,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "ticker",
                                 "label": "Ticker",
                                 "type": "text",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
                                 "validate": "ticker",
                             },
                             {
@@ -344,25 +282,18 @@ PAGES: List[Dict[str, Any]] = [
                                 "type": "select",
                                 "required": False,
                                 "options": ["NYSE", "NASDAQ", "AMEX", "Other"],
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "role",
                                 "label": "Role",
                                 "type": "text",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "ownership_pct",
                                 "label": "Ownership %",
                                 "type": "number",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
                                 "validate": "pct_0_100_two_dec",
                             },
                             {
@@ -370,8 +301,6 @@ PAGES: List[Dict[str, Any]] = [
                                 "label": "As Of",
                                 "type": "date",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
                                 "validate": "iso_date",
                             },
                         ],
@@ -403,9 +332,6 @@ PAGES: List[Dict[str, Any]] = [
                                 "label": "Institution Name",
                                 "type": "text",
                                 "required": True,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "country",
@@ -413,8 +339,6 @@ PAGES: List[Dict[str, Any]] = [
                                 "type": "select",
                                 "required": True,
                                 "options": "ISO_COUNTRIES",
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "purpose",
@@ -422,25 +346,18 @@ PAGES: List[Dict[str, Any]] = [
                                 "type": "select",
                                 "required": True,
                                 "options": ["Savings", "Brokerage", "Payments", "Other"],
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "source_of_funds",
                                 "label": "Source of Funds",
                                 "type": "textarea",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "open_date",
                                 "label": "Open Date",
                                 "type": "date",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
                                 "validate": "iso_date",
                             },
                             {
@@ -449,8 +366,6 @@ PAGES: List[Dict[str, Any]] = [
                                 "type": "radio",
                                 "required": False,
                                 "options": ["Yes", "No"],
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "foreign_bank_acct",
@@ -458,8 +373,6 @@ PAGES: List[Dict[str, Any]] = [
                                 "type": "radio",
                                 "required": False,
                                 "options": ["Yes", "No"],
-                                "show_if": None,
-                                "validate": None,
                             },
                         ],
                     },
@@ -490,9 +403,6 @@ PAGES: List[Dict[str, Any]] = [
                                 "label": "PEP Name",
                                 "type": "text",
                                 "required": True,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "pep_country",
@@ -500,8 +410,6 @@ PAGES: List[Dict[str, Any]] = [
                                 "type": "select",
                                 "required": True,
                                 "options": "ISO_COUNTRIES",
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "pep_relationship",
@@ -509,25 +417,18 @@ PAGES: List[Dict[str, Any]] = [
                                 "type": "select",
                                 "required": True,
                                 "options": ["Self", "Family", "Associate"],
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "pep_title",
                                 "label": "Title",
                                 "type": "text",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                             {
                                 "name": "pep_start",
                                 "label": "Start Date",
                                 "type": "date",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
                                 "validate": "iso_date",
                             },
                             {
@@ -535,8 +436,6 @@ PAGES: List[Dict[str, Any]] = [
                                 "label": "End Date",
                                 "type": "date",
                                 "required": False,
-                                "options": None,
-                                "show_if": None,
                                 "validate": "iso_date>=pep_start",
                             },
                             {
@@ -544,9 +443,6 @@ PAGES: List[Dict[str, Any]] = [
                                 "label": "I consent to screening",
                                 "type": "checkbox",
                                 "required": True,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
                             },
                         ],
                     },
@@ -554,311 +450,14 @@ PAGES: List[Dict[str, Any]] = [
             }
         ],
     },
-
-            }
-        ],
-    },
-    {
-        "key": "reg_affiliations",
-        "title": "Regulatory Affiliations",
-        "sections": [
-            {
-                "title": "SRO Membership & Control Persons",
-                "fields": [
-                    {
-                        "name": "sro_member",
-                        "label": "Member of Stk Exch./FINRA?",
-                        "type": "radio",
-                        "required": True,
-                        "options": ["Yes", "No"],
-                    },
-                    {
-                        "type": "group",
-                        "show_if": {"sro_member": "Yes"},
-                        "fields": [
-                            {
-                                "name": "membership_type",
-                                "label": "Membership Type",
-                                "type": "select",
-                                "required": True,
-                                "options": ["FINRA", "NYSE", "NASDAQ", "Other"],
-                                "show_if": None,
-                                "validate": None,
-                            },
-                            {
-                                "name": "sro_crd",
-                                "label": "CRD #",
-                                "type": "text",
-                                "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": "crd",
-                            },
-                            {
-                                "name": "sro_branch",
-                                "label": "Branch",
-                                "type": "text",
-                                "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
-                            },
-                        ],
-                    },
-                    {
-                        "name": "control_person",
-                        "label": "Are you a senior officer, director, or 10% or more shareholder of a public company?",
-                        "type": "radio",
-                        "required": True,
-                        "options": ["Yes", "No"],
-                    },
-                    {
-                        "type": "group",
-                        "show_if": {"control_person": "Yes"},
-                        "fields": [
-                            {
-                                "name": "company_name",
-                                "label": "Company Name",
-                                "type": "text",
-                                "required": True,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
-                            },
-                            {
-                                "name": "ticker",
-                                "label": "Ticker",
-                                "type": "text",
-                                "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": "ticker",
-                            },
-                            {
-                                "name": "exchange",
-                                "label": "Exchange",
-                                "type": "select",
-                                "required": False,
-                                "options": ["NYSE", "NASDAQ", "AMEX", "Other"],
-                                "show_if": None,
-                                "validate": None,
-                            },
-                            {
-                                "name": "role",
-                                "label": "Role",
-                                "type": "text",
-                                "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
-                            },
-                            {
-                                "name": "ownership_pct",
-                                "label": "Ownership %",
-                                "type": "number",
-                                "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": "pct_0_100_two_dec",
-                            },
-                            {
-                                "name": "as_of",
-                                "label": "As Of",
-                                "type": "date",
-                                "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": "iso_date",
-                            },
-                        ],
-                    },
-                ],
-            }
-        ],
-    },
-    {
-        "key": "foreign_accounts",
-        "title": "Foreign Financial Accounts",
-        "sections": [
-            {
-                "title": "FFI / Private Banking",
-                "fields": [
-                    {
-                        "name": "has_ffi",
-                        "label": "Foreign Financial Institution Account?",
-                        "type": "radio",
-                        "required": True,
-                        "options": ["Yes", "No"],
-                    },
-                    {
-                        "type": "group",
-                        "show_if": {"has_ffi": "Yes"},
-                        "fields": [
-                            {
-                                "name": "institution_name",
-                                "label": "Institution Name",
-                                "type": "text",
-                                "required": True,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
-                            },
-                            {
-                                "name": "country",
-                                "label": "Country",
-                                "type": "select",
-                                "required": True,
-                                "options": "ISO_COUNTRIES",
-                                "show_if": None,
-                                "validate": None,
-                            },
-                            {
-                                "name": "purpose",
-                                "label": "Purpose",
-                                "type": "select",
-                                "required": True,
-                                "options": ["Savings", "Brokerage", "Payments", "Other"],
-                                "show_if": None,
-                                "validate": None,
-                            },
-                            {
-                                "name": "source_of_funds",
-                                "label": "Source of Funds",
-                                "type": "textarea",
-                                "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
-                            },
-                            {
-                                "name": "open_date",
-                                "label": "Open Date",
-                                "type": "date",
-                                "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": "iso_date",
-                            },
-                            {
-                                "name": "private_banking",
-                                "label": "Is this a private banking account?",
-                                "type": "radio",
-                                "required": False,
-                                "options": ["Yes", "No"],
-                                "show_if": None,
-                                "validate": None,
-                            },
-                            {
-                                "name": "foreign_bank_acct",
-                                "label": "Is this an account for a Foreign Bank?",
-                                "type": "radio",
-                                "required": False,
-                                "options": ["Yes", "No"],
-                                "show_if": None,
-                                "validate": None,
-                            },
-                        ],
-                    },
-                ],
-            }
-        ],
-    },
-    {
-        "key": "pep",
-        "title": "Politically Exposed Person (PEP)",
-        "sections": [
-            {
-                "title": "PEP Screening",
-                "fields": [
-                    {
-                        "name": "is_pep",
-                        "label": "Politically Exposed Person?",
-                        "type": "radio",
-                        "required": True,
-                        "options": ["Yes", "No"],
-                    },
-                    {
-                        "type": "group",
-                        "show_if": {"is_pep": "Yes"},
-                        "fields": [
-                            {
-                                "name": "pep_name",
-                                "label": "PEP Name",
-                                "type": "text",
-                                "required": True,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
-                            },
-                            {
-                                "name": "pep_country",
-                                "label": "Country",
-                                "type": "select",
-                                "required": True,
-                                "options": "ISO_COUNTRIES",
-                                "show_if": None,
-                                "validate": None,
-                            },
-                            {
-                                "name": "pep_relationship",
-                                "label": "Relationship",
-                                "type": "select",
-                                "required": True,
-                                "options": ["Self", "Family", "Associate"],
-                                "show_if": None,
-                                "validate": None,
-                            },
-                            {
-                                "name": "pep_title",
-                                "label": "Title",
-                                "type": "text",
-                                "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
-                            },
-                            {
-                                "name": "pep_start",
-                                "label": "Start Date",
-                                "type": "date",
-                                "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": "iso_date",
-                            },
-                            {
-                                "name": "pep_end",
-                                "label": "End Date",
-                                "type": "date",
-                                "required": False,
-                                "options": None,
-                                "show_if": None,
-                                "validate": "iso_date>=pep_start",
-                            },
-                            {
-                                "name": "pep_screening_consent",
-                                "label": "I consent to screening",
-                                "type": "checkbox",
-                                "required": True,
-                                "options": None,
-                                "show_if": None,
-                                "validate": None,
-                            },
-                        ],
-                    },
-                ],
-            }
-        ],
-    },
-
 ]
 
 # ---------------------------------------------------------------------------
 # Helper functions for field iteration
 # ---------------------------------------------------------------------------
 
-def iterate_fields(fields: List[Dict[str, Any]], values: Dict[str, str]):
-    """Yield field specs that should be validated based on ``show_if`` rules."""
+def iterate_fields(fields: List[Dict[str, Any]], values: Dict[str, Any]):
+    """Yield field specs that should be validated based on show_if rules."""
     for fld in fields:
         if fld.get("type") == "group":
             cond = fld.get("show_if") or {}
@@ -877,9 +476,8 @@ def iterate_fields(fields: List[Dict[str, Any]], values: Dict[str, str]):
 # Main window implementation
 # ---------------------------------------------------------------------------
 
-
 class MagnusClientIntakeForm(QMainWindow):
-    """Simple wizard driven by ``PAGES`` specification."""
+    """Simple wizard driven by PAGES specification."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -990,16 +588,8 @@ class MagnusClientIntakeForm(QMainWindow):
             self.render_fields(section.get("fields", []), box_layout, inputs, groups)
             content_layout.addWidget(box)
 
-        content_layout.addItem(
-            QSpacerItem(
-                0,
-                0,
-                QSizePolicy.Policy.Minimum,
-                QSizePolicy.Policy.Expanding,
-            )
-        )
-=======
-        content_layout.addItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
+        # Spacer to absorb extra height (fill before scroll)
+        content_layout.addItem(QSpacerItem(0, 0, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
 
         # Navigation buttons outside scroll area
         nav = QHBoxLayout()
@@ -1060,13 +650,7 @@ class MagnusClientIntakeForm(QMainWindow):
                     group.addButton(rb)
                     hl.addWidget(rb)
                     rb.toggled.connect(self.handle_field_change)
-
-                container.setSizePolicy(
-                    QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-                )
-=======
-                container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-
+                container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
                 inputs[name] = {"type": "radio", "group": group}
                 layout.addWidget(container)
                 continue
@@ -1076,37 +660,22 @@ class MagnusClientIntakeForm(QMainWindow):
                 opts = field.get("options") or []
                 if opts == "ISO_COUNTRIES":
                     opts = ISO_COUNTRIES
-                widget.addItems([""] + opts)
+                widget.addItems([""] + list(opts))
                 widget.setCurrentText(self.state.get(name, ""))
                 widget.currentTextChanged.connect(self.handle_field_change)
-
-                widget.setSizePolicy(
-                    QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-                )
-
-                widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
             elif ftype == "text":
                 widget = QLineEdit()
                 widget.setText(self.state.get(name, ""))
                 widget.textChanged.connect(self.handle_field_change)
-
-                widget.setSizePolicy(
-                    QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-                )
-
-                widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
             elif ftype == "number":
                 widget = QLineEdit()
                 widget.setText(self.state.get(name, ""))
                 widget.textChanged.connect(self.handle_field_change)
-
-                widget.setSizePolicy(
-                    QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-                )
-
-                widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
             elif ftype == "date":
                 widget = QDateEdit()
@@ -1118,23 +687,13 @@ class MagnusClientIntakeForm(QMainWindow):
                     if dt.isValid():
                         widget.setDate(dt)
                 widget.dateChanged.connect(self.handle_field_change)
-
-                widget.setSizePolicy(
-                    QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-                )
-
-                widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
             elif ftype == "textarea":
                 widget = QTextEdit()
                 widget.setPlainText(self.state.get(name, ""))
                 widget.textChanged.connect(self.handle_field_change)
-
-                widget.setSizePolicy(
-                    QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-                )
-
-                widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
             elif ftype == "checkbox":
                 widget = QCheckBox(label_text)
@@ -1191,7 +750,7 @@ class MagnusClientIntakeForm(QMainWindow):
                 values[name] = btn.text() if btn else ""
             elif ftype == "select":
                 values[name] = info["widget"].currentText()
-            elif ftype == "text" or ftype == "number":
+            elif ftype in ("text", "number"):
                 values[name] = info["widget"].text()
             elif ftype == "date":
                 values[name] = info["widget"].date().toString("yyyy-MM-dd")
@@ -1236,28 +795,9 @@ class MagnusClientIntakeForm(QMainWindow):
                                 valid = False
                 if not valid:
                     break
-
-        for field in iterate_fields(meta["spec"]["sections"][0]["fields"], values):
-            name = field.get("name")
-            value = values.get(name, "")
-            if field.get("required"):
-                if field["type"] == "checkbox":
-                    if not value:
-                        valid = False
-                elif not value:
-                    valid = False
-            if valid and field.get("validate") and value not in ("", False):
-                validator = VALIDATORS.get(field["validate"])
-                if validator:
-                    try:
-                        if not validator(value, values):
-                            valid = False
-                    except TypeError:
-                        if not validator(value):
-                            valid = False
-
             if not valid:
                 break
+
         meta["next_btn"].setEnabled(valid)
         return valid
 
