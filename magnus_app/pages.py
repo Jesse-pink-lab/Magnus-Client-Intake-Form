@@ -332,6 +332,8 @@ PAGES: List[Dict[str, Any]] = [
                     {
                         'type': 'group',
                         'name': 'dependent_block',
+
+                        'show_if': {'dependent_block': ''},
                         'fields': [
                             {
                                 'name': 'dep_full_name',
@@ -367,6 +369,8 @@ PAGES: List[Dict[str, Any]] = [
                     {
                         'type': 'group',
                         'name': 'beneficiary_block',
+
+                        'show_if': {'beneficiary_block': ''},
                         'fields': [
                             {
                                 'name': 'ben_full_name',
