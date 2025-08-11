@@ -544,3 +544,8 @@ def generate_pdf_report(form_data, output_path):
 
 # Alias for backward compatibility with main_enhanced.py
 generate_pdf_from_data = generate_pdf_report
+
+
+def generate(form_data, output_path):
+    """Compatibility wrapper expected by the UI."""
+    return generate_pdf_report(form_data, output_path)
