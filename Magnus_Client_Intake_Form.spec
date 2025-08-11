@@ -2,15 +2,15 @@
 
 from PyInstaller.utils.hooks import collect_data_files
 
-# Explicitly include required .py files
+# Explicitly include required modules that aren't imported at build time
 extra_datas = [
-    ('pdf_generator_reportlab.py', '.'),
-    ('validation.py', '.'),
-    ('security.py', '.')
+    ('magnus_app/pdf_generator_reportlab.py', 'magnus_app'),
+    ('magnus_app/validation.py', 'magnus_app'),
+    ('security.py', '.'),
 ]
 
 a = Analysis(
-    ['main_enhanced.py'],
+    ['magnus_app/app.py'],
     pathex=['.'],
     binaries=[],
     datas=extra_datas,
