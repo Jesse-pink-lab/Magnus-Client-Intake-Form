@@ -82,13 +82,13 @@ spec_content = """# -*- mode: python ; coding: utf-8 -*-
 block_cipher = None
 
 a = Analysis(
-    ['main_enhanced.py'],
-    pathex=[],
+    ['magnus_app/app.py'],
+    pathex=['.'],
     binaries=[],
     datas=[
-        ('LICENSE.txt', '.'), 
-        ('pdf_generator_reportlab.py', '.'),
-        ('validation.py', '.'),
+        ('LICENSE.txt', '.'),
+        ('magnus_app/pdf_generator_reportlab.py', 'magnus_app'),
+        ('magnus_app/validation.py', 'magnus_app'),
         ('security.py', '.'),
         ('requirements.txt', '.')
     ],
