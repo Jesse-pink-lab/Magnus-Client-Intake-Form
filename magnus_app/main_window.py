@@ -132,6 +132,8 @@ class MagnusClientIntakeForm(QMainWindow):
         return page
 
     def _refresh_review(self) -> None:
+        lines = ["---- MAGNUS CLIENT INTAKE FORM — REVIEW ----", ""]
+
         def get(name, default="Not provided"):
             val = self.state.get(name)
             if val is True:
@@ -202,6 +204,48 @@ class MagnusClientIntakeForm(QMainWindow):
             )
             return
 
+
+        # Summarize key sections (add more fields as needed)
+        lines += [
+            "PERSONAL INFORMATION:",
+            f"  Full Name: {get('full_name')}",
+            f"  Date of Birth: {get('dob')}",
+            f"  SSN: {get('ssn')}",
+            f"  Marital Status: {get('marital_status')}",
+            "",
+            "CONTACT INFORMATION:",
+            f"  Residential Address: {get('address')}",
+            f"  Email: {get('email')}",
+            f"  Mobile Phone: {get('phone_mobile')}",
+            "",
+            "EMPLOYMENT INFORMATION:",
+            f"  Status: {get('employment_status')}",
+            f"  Employer: {get('employer_name')}",
+            f"  Title: {get('job_title')}",
+            "",
+            "FINANCIAL INFORMATION:",
+            f"  Education: {get('education')}",
+            f"  Risk Tolerance: {get('risk_tolerance')}",
+            f"  Est. Net Worth: {get('est_net_worth')}",
+            f"  Est. Liquid Net Worth: {get('est_liquid_net_worth')}",
+            "",
+            "TRUSTED CONTACT:",
+            f"  Name: {get('tcp_full_name')}",
+            f"  Phone: {get('tcp_phone')}",
+            f"  Email: {get('tcp_email')}",
+            "",
+            "REGULATORY (highlights):",
+            f"  Employee of this BD: {get('employee_this_bd')}",
+            f"  SRO Member: {get('sro_member')}",
+            f"  Foreign FI Account: {get('has_ffi')}",
+            f"  PEP: {get('is_pep')}",
+        ]
+        self._review_text.setPlainText("\n".join(lines))
+
+    def _generate_pdf(self) -> None:
+        if pdfgen is None or not hasattr(pdfgen, "generate"):
+            QMessageBox.warning(self, "PDF", "PDF generator module not available.")
+            return
         path, _ = QFileDialog.getSaveFileName(
             self, "Save PDF", "Magnus_Client_Intake_Form.pdf", "PDF Files (*.pdf)"
         )
@@ -210,6 +254,8 @@ class MagnusClientIntakeForm(QMainWindow):
         try:
             pdfgen.generate(self.state, path)
             QMessageBox.information(self, "PDF", f"PDF generated successfully:\n{path}")
+            pdfgen.generate(self.state, path)  # adjust only if your function name differs
+            QMessageBox.information(self, "PDF", "PDF generated successfully.")
         except Exception as e:
             QMessageBox.critical(self, "PDF Error", f"Failed to generate PDF:\n{e}")
 
