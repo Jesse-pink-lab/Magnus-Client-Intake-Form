@@ -142,6 +142,69 @@ class MagnusClientIntakeForm(QMainWindow):
                 return "No"
             return val if (val not in ("", None)) else default
 
+        html = f"""
+        <div style="font-family: Segoe UI,Inter,system-ui; color:#111827;">
+          <h3>— MAGNUS CLIENT INTAKE FORM — REVIEW —</h3>
+
+          <h4>PERSONAL INFORMATION</h4>
+          <p>
+            <b>Full Name:</b> {get('full_name')}<br/>
+            <b>Date of Birth:</b> {get('dob')}<br/>
+            <b>SSN:</b> {get('ssn')}<br/>
+            <b>Marital Status:</b> {get('marital_status')}
+          </p>
+
+          <h4>CONTACT INFORMATION</h4>
+          <p>
+            <b>Residential Address:</b> {get('address')}<br/>
+            <b>Email:</b> {get('email')}<br/>
+            <b>Mobile Phone:</b> {get('phone_mobile')}
+          </p>
+
+          <h4>EMPLOYMENT INFORMATION</h4>
+          <p>
+            <b>Status:</b> {get('employment_status')}<br/>
+            <b>Employer:</b> {get('employer_name')}<br/>
+            <b>Title:</b> {get('job_title')}
+          </p>
+
+          <h4>FINANCIAL INFORMATION</h4>
+          <p>
+            <b>Education:</b> {get('education')}<br/>
+            <b>Risk Tolerance:</b> {get('risk_tolerance')}<br/>
+            <b>Est. Net Worth:</b> {get('est_net_worth')}<br/>
+            <b>Est. Liquid Net Worth:</b> {get('est_liquid_net_worth')}
+          </p>
+
+          <h4>TRUSTED CONTACT</h4>
+          <p>
+            <b>Name:</b> {get('tcp_full_name')}<br/>
+            <b>Phone:</b> {get('tcp_phone')}<br/>
+            <b>Email:</b> {get('tcp_email')}
+          </p>
+
+          <h4>REGULATORY (highlights)</h4>
+          <p>
+            <b>Employee of this BD:</b> {get('employee_this_bd')}<br/>
+            <b>SRO Member:</b> {get('sro_member')}<br/>
+            <b>Foreign FI Account:</b> {get('has_ffi')}<br/>
+            <b>PEP:</b> {get('is_pep')}
+          </p>
+        </div>
+        """
+        self._review_text.setHtml(html)
+
+    def _generate_pdf(self) -> None:
+        if pdfgen is None or not hasattr(pdfgen, "generate"):
+            QMessageBox.warning(
+                self,
+                "PDF",
+                "PDF generator module not available.\n"
+                "Ensure magnus_app/pdf_generator_reportlab.py defines generate(state, path).",
+            )
+            return
+
+
         # Summarize key sections (add more fields as needed)
         lines += [
             "PERSONAL INFORMATION:",
@@ -189,6 +252,8 @@ class MagnusClientIntakeForm(QMainWindow):
         if not path:
             return
         try:
+            pdfgen.generate(self.state, path)
+            QMessageBox.information(self, "PDF", f"PDF generated successfully:\n{path}")
             pdfgen.generate(self.state, path)  # adjust only if your function name differs
             QMessageBox.information(self, "PDF", "PDF generated successfully.")
         except Exception as e:
