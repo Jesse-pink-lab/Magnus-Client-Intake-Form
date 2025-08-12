@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 from PyQt6.QtGui import QPalette, QColor
@@ -25,7 +26,20 @@ def main() -> None:
     pal.setColor(QPalette.ColorRole.ButtonText, QColor("#ffffff"))
     app.setPalette(pal)
     _load_qss(app)
+
     form = MagnusClientIntakeForm()
+
+    arg_paths = [a for a in sys.argv[1:] if os.path.isfile(a)]
+    draft_path = next((p for p in arg_paths if p.lower().endswith((".mgd", ".json"))), None)
+
+    if draft_path:
+        try:
+            form.open_draft_path(draft_path)
+        except Exception:
+            form.show_home()
+    else:
+        form.show_home()
+
     form.show()
     sys.exit(app.exec())
 
