@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import subprocess
+import datetime
 
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -42,7 +43,7 @@ class MagnusClientIntakeForm(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.state: Dict[str, Any] = load_state(STATE_FILE)
-        self.current_page = 0
+        self.current_page = -1
         self.pages: List[Dict[str, Any]] = []
         self.renderer = PageRenderer(self.state, VALIDATORS)
         self.current_path: Optional[str] = None
@@ -51,6 +52,7 @@ class MagnusClientIntakeForm(QMainWindow):
         self.last_invalid_fields: List[str] = []
         self.is_tearing_down: bool = False
         self.is_navigating: bool = False
+        self.force_non_native_dialogs = os.environ.get("MAGNUS_QT_NON_NATIVE") == "1"
         self.init_ui()
         self.init_menu()
         self.init_autosave()
@@ -93,10 +95,12 @@ class MagnusClientIntakeForm(QMainWindow):
         # Append Review page to the stack
         review = self._build_review_page()
         self.stack.addWidget(review)
+        self.pages.append({"inputs": {}, "groups": [], "spec": {"sections": []}})
 
         self.update_progress()
-        self.update_groups(0)
-        self.validate_current_page(0)
+        if self.pages:
+            self.update_groups(0)
+            self.validate_current_page(0)
 
     # ---------------------------------------------------------- NAVIGATION --
     def on_next(self) -> None:
@@ -121,15 +125,15 @@ class MagnusClientIntakeForm(QMainWindow):
                     )
                 QMessageBox.warning(self, "Incomplete Information", msg)
 
-            if self.current_page < len(self.pages):
+            if self.current_page < len(self.pages) - 1:
                 self.state.update(self.get_current_values(self.current_page))
                 save_state(STATE_FILE, self.state)
                 self.current_page += 1
                 self.stack.setCurrentIndex(self.current_page)
-                if self.current_page == len(self.pages):  # just entered Review
+                if self.current_page == len(self.pages) - 1:  # just entered Review
                     self._refresh_review()
                 self.update_progress()
-                if self.current_page < len(self.pages):
+                if self.current_page < len(self.pages) - 1:
                     self.update_groups(self.current_page)
                     self.validate_current_page(self.current_page)
             else:
@@ -152,7 +156,7 @@ class MagnusClientIntakeForm(QMainWindow):
                 self.current_page -= 1
                 self.stack.setCurrentIndex(self.current_page)
                 self.update_progress()
-                if self.current_page < len(self.pages):
+                if self.current_page < len(self.pages) - 1:
                     self.update_groups(self.current_page)
                     self.validate_current_page(self.current_page)
         finally:
@@ -387,28 +391,50 @@ class MagnusClientIntakeForm(QMainWindow):
         self._review_text.setHtml(html)
 
 
+    def _suggest_pdf_name(self) -> str:
+        name = self.state.get("full_name") or "Client"
+        date = datetime.date.today().strftime("%Y-%m-%d")
+        return os.path.join(self._default_drafts_dir(), f"{name} - Magnus Intake {date}.pdf")
+
+    def pick_pdf_path(self, suggested_name: str) -> Optional[str]:
+        options = QFileDialog.Option(0)
+        if self.force_non_native_dialogs:
+            options |= QFileDialog.Option.DontUseNativeDialog
+        try:
+            path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save PDF Report",
+                suggested_name,
+                "PDF Files (*.pdf)",
+                options=options,
+            )
+        except Exception:
+            path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save PDF Report",
+                suggested_name,
+                "PDF Files (*.pdf)",
+                options=QFileDialog.Option.DontUseNativeDialog,
+            )
+        return path or None
+
     def _generate_pdf(self) -> None:
         if pdfgen is None or not hasattr(pdfgen, "generate"):
             QMessageBox.warning(self, "PDF", "PDF generator module not available.")
             return
-        dlg = QFileDialog(self, "Save PDF Report")
-        dlg.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
-        dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        dlg.setNameFilter("PDF Files (*.pdf)")
-        dlg.setDefaultSuffix("pdf")
-        if dlg.exec():
-            paths = dlg.selectedFiles()
-            if paths:
-                path = paths[0]
-                try:
-                    pdfgen.generate(self.state, path)
-                    QMessageBox.information(self, "PDF", f"PDF generated successfully:\n{path}")
-                except Exception as e:
-                    QMessageBox.critical(self, "PDF Error", f"Failed to generate PDF:\n{e}")
+        suggested = self._suggest_pdf_name()
+        path = self.pick_pdf_path(suggested)
+        if not path:
+            return
+        try:
+            pdfgen.generate(self.state, path)
+            QMessageBox.information(self, "PDF", f"PDF generated successfully:\n{path}")
+        except Exception as e:
+            QMessageBox.critical(self, "PDF Error", f"Failed to generate PDF:\n{e}")
 
     def update_progress(self) -> None:
-        total = len(self.pages) + 1  # +1 for Review page
-        pct = round(((self.current_page + 1) / total) * 100)
+        total = len(self.pages)
+        pct = round(((self.current_page + 1) / total) * 100) if total else 0
         self.progress.setValue(pct)
 
     # ----------------------------------------------------------- SESSION --
@@ -418,6 +444,7 @@ class MagnusClientIntakeForm(QMainWindow):
     def start_session(self) -> None:
         self.session_active = True
         self.is_dirty = False
+        self.current_page = 0 if self.pages else -1
         self.autosave_timer.start(60000)
 
     def end_session(self) -> None:
@@ -441,6 +468,8 @@ class MagnusClientIntakeForm(QMainWindow):
 
     # ------------------------------------------------------------- VALUES --
     def get_current_values(self, index: int) -> Dict[str, Any]:
+        if index < 0 or index >= len(self.pages):
+            return {}
         meta = self.pages[index]
         values: Dict[str, Any] = {}
         for name, info in meta["inputs"].items():
@@ -641,9 +670,16 @@ class MagnusClientIntakeForm(QMainWindow):
         self.autosave_timer.timeout.connect(self.autosave_tick)
 
     def autosave_tick(self) -> None:
-        if self.is_tearing_down or not self.session_active or not self.current_path:
+        if (
+            self.is_tearing_down
+            or not self.session_active
+            or self.current_page < 0
+            or self.current_page >= len(self.pages)
+            or not self.current_path
+        ):
             return
         try:
+            self.state.update(self.get_current_values(self.current_page))
             save_state(self.current_path, self.state)
         except Exception as e:
             _log(f"AUTOSAVE ERROR: {e}")
@@ -674,6 +710,12 @@ class MagnusClientIntakeForm(QMainWindow):
             return False
 
     def save_draft(self, auto: bool = False) -> None:
+        if (
+            not self.session_active
+            or self.current_page < 0
+            or self.current_page >= len(self.pages)
+        ):
+            return
         self.state.update(self.get_current_values(self.current_page))
         if auto:
             if self.current_path:
@@ -744,7 +786,8 @@ class MagnusClientIntakeForm(QMainWindow):
                 self.pages.append(meta)
             review = self._build_review_page()
             self.stack.addWidget(review)
-            self.current_page = 0
+            self.pages.append({"inputs": {}, "groups": [], "spec": {"sections": []}})
+            self.current_page = 0 if self.pages else -1
             self.stack.setCurrentIndex(0)
             self.update_progress()
             if self.pages:
@@ -766,6 +809,12 @@ class MagnusClientIntakeForm(QMainWindow):
             return
         self.autosave_timer.stop()
         self.end_session()
+        while self.stack.count():
+            w = self.stack.widget(0)
+            self.stack.removeWidget(w)
+            w.deleteLater()
+        self.pages.clear()
+        self.current_page = -1
         self.show_home()
 
     def open_draft_path(self, path: str) -> None:
@@ -789,14 +838,14 @@ class MagnusClientIntakeForm(QMainWindow):
             self.current_path = path
             self.rebuild_pages()
             invalid = 0
-            for i in range(len(self.pages)):
+            for i in range(len(self.pages) - 1):
                 if not self.validate_current_page(i):
                     invalid = i
                     break
             self.current_page = invalid
             self.stack.setCurrentIndex(invalid)
             self.update_progress()
-            if invalid < len(self.pages):
+            if invalid < len(self.pages) - 1:
                 self.update_groups(invalid)
                 self.validate_current_page(invalid)
             touch_mru(path)
