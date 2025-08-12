@@ -192,11 +192,11 @@ class MagnusClientIntakeForm(QMainWindow):
 
         # Investment objectives rankings
         objectives_map = [
-            ("obj_trading_profits_rank", "Trading Profits"),
-            ("obj_speculation_rank", "Speculation"),
-            ("obj_capital_app_rank", "Capital Appreciation"),
-            ("obj_income_rank", "Income"),
-            ("obj_preservation_rank", "Preservation of Capital"),
+            ("rank_trading_profits", "Trading Profits"),
+            ("rank_speculation", "Speculation"),
+            ("rank_capital_appreciation", "Capital Appreciation"),
+            ("rank_income", "Income"),
+            ("rank_preservation", "Preservation of Capital"),
         ]
         obj_lines = [
             f"{label}: {get(key)}" for key, label in objectives_map if self.state.get(key)
@@ -216,7 +216,7 @@ class MagnusClientIntakeForm(QMainWindow):
                 }
             ]
         dep_lines = [
-            f"{d.get('name', 'Not provided')} (DOB: {d.get('dob', 'Not provided')}, Relationship: {d.get('relationship', 'Not provided')})"
+            f"{d.get('full_name', 'Not provided')} (DOB: {d.get('dob', 'Not provided')}, Relationship: {d.get('relationship', 'Not provided')})"
             for d in dependents
         ]
         dependents_html = "<br/>".join(dep_lines) if dep_lines else "Not provided"
@@ -229,14 +229,14 @@ class MagnusClientIntakeForm(QMainWindow):
         ):
             beneficiaries = [
                 {
-                    "name": self.state.get("ben_full_name"),
+                    "full_name": self.state.get("ben_full_name"),
                     "dob": self.state.get("ben_dob"),
                     "relationship": self.state.get("ben_relationship"),
-                    "percentage": self.state.get("ben_allocation_pct"),
+                    "allocation": self.state.get("ben_allocation_pct"),
                 }
             ]
         ben_lines = [
-            f"{b.get('name', 'Not provided')} (DOB: {b.get('dob', 'Not provided')}, Relationship: {b.get('relationship', 'Not provided')}, Allocation: {b.get('percentage', 'Not provided')})"
+            f"{b.get('full_name', 'Not provided')} (DOB: {b.get('dob', 'Not provided')}, Relationship: {b.get('relationship', 'Not provided')}, Allocation: {b.get('allocation', 'Not provided')})"
             for b in beneficiaries
         ]
         beneficiaries_html = "<br/>".join(ben_lines) if ben_lines else "Not provided"
@@ -342,7 +342,7 @@ class MagnusClientIntakeForm(QMainWindow):
 
           <h4>REGULATORY (highlights)</h4>
           <p>
-            <b>Electronic Delivery Consent:</b> {get('electronic_delivery_consent')}<br/>
+            <b>Electronic Delivery Consent:</b> {get('ed_consent')}<br/>
             <b>Employee of this BD:</b> {get('employee_this_bd')}<br/>
             <b>SRO Member:</b> {get('sro_member')}<br/>
             <b>Foreign FI Account:</b> {get('has_ffi')}<br/>
@@ -473,6 +473,31 @@ class MagnusClientIntakeForm(QMainWindow):
                     break
             if not valid:
                 break
+
+        if valid:
+            inputs = meta.get("inputs", {})
+            # Totals cross-check
+            if {"est_net_worth", "est_liquid_net_worth"}.issubset(inputs.keys()):
+                if not VALIDATORS["liquid_lte_net"]("", merged):
+                    valid = False
+            # Beneficiaries allocation sum
+            if "beneficiaries" in inputs:
+                if not VALIDATORS["beneficiaries_sum_100"]("", merged):
+                    valid = False
+            # Objective ranks unique
+            if {"rank_trading_profits", "rank_speculation", "rank_capital_appreciation", "rank_income", "rank_preservation"}.issubset(inputs.keys()):
+                if not VALIDATORS["objective_ranks_unique"]("", merged):
+                    valid = False
+            # Investment purpose at least one
+            purpose_fields = [
+                "inv_purpose_income",
+                "inv_purpose_growth_income",
+                "inv_purpose_cap_app",
+                "inv_purpose_speculation",
+            ]
+            if any(k in inputs for k in purpose_fields):
+                if not any(merged.get(k) for k in purpose_fields):
+                    valid = False
 
         meta["next_btn"].setEnabled(valid)
         return valid

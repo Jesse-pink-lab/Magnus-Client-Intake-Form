@@ -1,6 +1,7 @@
 from typing import Any, Callable, Dict, List, Tuple
 
-from PyQt6.QtCore import QDate
+from PyQt6.QtCore import QDate, QRegularExpression
+from PyQt6.QtGui import QRegularExpressionValidator
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -21,6 +22,13 @@ from PyQt6.QtWidgets import (
 )
 
 from magnus_app.pages import ISO_COUNTRIES, PAGES
+from .validation import (
+    parse_usd,
+    format_usd,
+    parse_percent,
+    format_percent,
+    YEAR_RE,
+)
 
 
 class PageRenderer:
@@ -194,13 +202,97 @@ class PageRenderer:
             elif ftype == "text":
                 widget = QLineEdit()
                 widget.setText(self.state.get(name, ""))
+                if field.get("input_mask") == "ssn":
+                    widget.setInputMask("000-00-0000;_")
+                elif field.get("input_mask") == "phone":
+                    widget.setInputMask("(000) 000-0000;_")
+                validator_name = field.get("validate")
+                if validator_name == "usd_currency_0_1b":
+                    num = parse_usd(widget.text())
+                    if num is not None:
+                        widget.setText(format_usd(num))
+                elif validator_name == "percent_0_100":
+                    num = parse_percent(widget.text())
+                    if num is not None:
+                        widget.setText(format_percent(num))
                 widget.textChanged.connect(on_change)
+                if validator_name:
+                    def finish(w=widget, vname=validator_name):
+                        text = w.text()
+                        ok = True
+                        if vname == "usd_currency_0_1b":
+                            num = parse_usd(text)
+                            if num is not None:
+                                w.setText(format_usd(num))
+                            ok = num is not None
+                        elif vname == "percent_0_100":
+                            num = parse_percent(text)
+                            if num is not None:
+                                w.setText(format_percent(num))
+                            ok = num is not None
+                        else:
+                            validator = self.validators.get(vname)
+                            if validator:
+                                try:
+                                    ok = validator(text, self.state)
+                                except TypeError:
+                                    ok = validator(text)
+                        w.setStyleSheet("" if ok else "border: 1px solid #d9534f;")
+                    widget.editingFinished.connect(finish)
+                if field.get("validate") == "year_1900_current":
+                    widget.setValidator(
+                        QRegularExpressionValidator(QRegularExpression(YEAR_RE.pattern))
+                    )
+                if field.get("placeholder"):
+                    widget.setPlaceholderText(field.get("placeholder"))
                 widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
             elif ftype == "number":
                 widget = QLineEdit()
                 widget.setText(self.state.get(name, ""))
+                if field.get("input_mask") == "ssn":
+                    widget.setInputMask("000-00-0000;_")
+                elif field.get("input_mask") == "phone":
+                    widget.setInputMask("(000) 000-0000;_")
+                validator_name = field.get("validate")
+                if validator_name == "usd_currency_0_1b":
+                    num = parse_usd(widget.text())
+                    if num is not None:
+                        widget.setText(format_usd(num))
+                elif validator_name == "percent_0_100":
+                    num = parse_percent(widget.text())
+                    if num is not None:
+                        widget.setText(format_percent(num))
                 widget.textChanged.connect(on_change)
+                if validator_name:
+                    def finish(w=widget, vname=validator_name):
+                        text = w.text()
+                        ok = True
+                        if vname == "usd_currency_0_1b":
+                            num = parse_usd(text)
+                            if num is not None:
+                                w.setText(format_usd(num))
+                            ok = num is not None
+                        elif vname == "percent_0_100":
+                            num = parse_percent(text)
+                            if num is not None:
+                                w.setText(format_percent(num))
+                            ok = num is not None
+                        else:
+                            validator = self.validators.get(vname)
+                            if validator:
+                                try:
+                                    ok = validator(text, self.state)
+                                except TypeError:
+                                    ok = validator(text)
+                        w.setStyleSheet("" if ok else "border: 1px solid #d9534f;")
+                    widget.editingFinished.connect(finish)
+                if field.get("validate") == "year_1900_current":
+                    widget.setValidator(
+                        QRegularExpressionValidator(QRegularExpression(YEAR_RE.pattern))
+                    )
+                if field.get("placeholder"):
+                    widget.setPlaceholderText(field.get("placeholder"))
                 widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
             elif ftype == "date":
@@ -212,6 +304,9 @@ class PageRenderer:
                     dt = QDate.fromString(val, "yyyy-MM-dd")
                     if dt.isValid():
                         widget.setDate(dt)
+                if field.get("validate") in ("date_adult", "date_optional"):
+                    widget.setMinimumDate(QDate(1900, 1, 1))
+                    widget.setMaximumDate(QDate.currentDate())
                 widget.dateChanged.connect(on_change)
                 widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
@@ -284,13 +379,97 @@ class PageRenderer:
         elif ftype == "text":
             widget = QLineEdit()
             widget.setText(data.get(sub_name, ""))
+            if sub_spec.get("input_mask") == "ssn":
+                widget.setInputMask("000-00-0000;_")
+            elif sub_spec.get("input_mask") == "phone":
+                widget.setInputMask("(000) 000-0000;_")
+            validator_name = sub_spec.get("validate")
+            if validator_name == "usd_currency_0_1b":
+                num = parse_usd(widget.text())
+                if num is not None:
+                    widget.setText(format_usd(num))
+            elif validator_name == "percent_0_100":
+                num = parse_percent(widget.text())
+                if num is not None:
+                    widget.setText(format_percent(num))
             widget.textChanged.connect(lambda val: set_value(val))
+            if validator_name:
+                def finish(w=widget, vname=validator_name):
+                    text = w.text()
+                    ok = True
+                    if vname == "usd_currency_0_1b":
+                        num = parse_usd(text)
+                        if num is not None:
+                            w.setText(format_usd(num))
+                        ok = num is not None
+                    elif vname == "percent_0_100":
+                        num = parse_percent(text)
+                        if num is not None:
+                            w.setText(format_percent(num))
+                        ok = num is not None
+                    else:
+                        validator = self.validators.get(vname)
+                        if validator:
+                            try:
+                                ok = validator(text, self.state)
+                            except TypeError:
+                                ok = validator(text)
+                    w.setStyleSheet("" if ok else "border: 1px solid #d9534f;")
+                widget.editingFinished.connect(finish)
+            if sub_spec.get("validate") == "year_1900_current":
+                widget.setValidator(
+                    QRegularExpressionValidator(QRegularExpression(YEAR_RE.pattern))
+                )
+            if sub_spec.get("placeholder"):
+                widget.setPlaceholderText(sub_spec.get("placeholder"))
             widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         elif ftype == "number":
             widget = QLineEdit()
             widget.setText(data.get(sub_name, ""))
+            if sub_spec.get("input_mask") == "ssn":
+                widget.setInputMask("000-00-0000;_")
+            elif sub_spec.get("input_mask") == "phone":
+                widget.setInputMask("(000) 000-0000;_")
+            validator_name = sub_spec.get("validate")
+            if validator_name == "usd_currency_0_1b":
+                num = parse_usd(widget.text())
+                if num is not None:
+                    widget.setText(format_usd(num))
+            elif validator_name == "percent_0_100":
+                num = parse_percent(widget.text())
+                if num is not None:
+                    widget.setText(format_percent(num))
             widget.textChanged.connect(lambda val: set_value(val))
+            if validator_name:
+                def finish(w=widget, vname=validator_name):
+                    text = w.text()
+                    ok = True
+                    if vname == "usd_currency_0_1b":
+                        num = parse_usd(text)
+                        if num is not None:
+                            w.setText(format_usd(num))
+                        ok = num is not None
+                    elif vname == "percent_0_100":
+                        num = parse_percent(text)
+                        if num is not None:
+                            w.setText(format_percent(num))
+                        ok = num is not None
+                    else:
+                        validator = self.validators.get(vname)
+                        if validator:
+                            try:
+                                ok = validator(text, self.state)
+                            except TypeError:
+                                ok = validator(text)
+                    w.setStyleSheet("" if ok else "border: 1px solid #d9534f;")
+                widget.editingFinished.connect(finish)
+            if sub_spec.get("validate") == "year_1900_current":
+                widget.setValidator(
+                    QRegularExpressionValidator(QRegularExpression(YEAR_RE.pattern))
+                )
+            if sub_spec.get("placeholder"):
+                widget.setPlaceholderText(sub_spec.get("placeholder"))
             widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         elif ftype == "date":
@@ -302,6 +481,9 @@ class PageRenderer:
                 dt = QDate.fromString(val, "yyyy-MM-dd")
                 if dt.isValid():
                     widget.setDate(dt)
+            if sub_spec.get("validate") in ("date_adult", "date_optional"):
+                widget.setMinimumDate(QDate(1900, 1, 1))
+                widget.setMaximumDate(QDate.currentDate())
             widget.dateChanged.connect(lambda dt: set_value(dt.toString("yyyy-MM-dd")))
             widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
