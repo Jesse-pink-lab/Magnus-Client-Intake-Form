@@ -43,7 +43,8 @@ class MagnusClientIntakeForm(QMainWindow):
         self.pages: List[Dict[str, Any]] = []
         self.renderer = PageRenderer(self.state, VALIDATORS)
         self.current_path: Optional[str] = None
-        self.dirty = False
+        self.session_active: bool = False
+        self.is_dirty: bool = False
         self.init_ui()
         self.init_menu()
         self.init_autosave()
@@ -78,7 +79,7 @@ class MagnusClientIntakeForm(QMainWindow):
 
         for index, page_spec in enumerate(PAGES):
             page_widget, meta = self.renderer.render_page_from_spec(
-                page_spec, index, self.handle_field_change, self.on_next, self.on_back
+                page_spec, index, self.handle_field_change, self.on_next, self.on_back, self.go_home
             )
             self.stack.addWidget(page_widget)
             self.pages.append(meta)
@@ -147,6 +148,10 @@ class MagnusClientIntakeForm(QMainWindow):
         v.addWidget(self._review_text)
 
         row = QHBoxLayout()
+        home_btn = QPushButton("Home")
+        home_btn.clicked.connect(self.go_home)
+        row.addWidget(home_btn)
+
         back_btn = QPushButton("← Back")
         back_btn.clicked.connect(self.on_back)
         row.addWidget(back_btn)
@@ -347,7 +352,7 @@ class MagnusClientIntakeForm(QMainWindow):
         """
         self._review_text.setHtml(html)
 
-    
+
     def _generate_pdf(self) -> None:
         if pdfgen is None or not hasattr(pdfgen, "generate"):
             QMessageBox.warning(self, "PDF", "PDF generator module not available.")
@@ -367,6 +372,34 @@ class MagnusClientIntakeForm(QMainWindow):
         total = len(self.pages) + 1  # +1 for Review page
         pct = round(((self.current_page + 1) / total) * 100)
         self.progress.setValue(pct)
+
+    # ----------------------------------------------------------- SESSION --
+    def mark_dirty(self) -> None:
+        self.is_dirty = True
+
+    def start_session(self) -> None:
+        self.session_active = True
+        self.is_dirty = False
+        self.autosave_timer.start(60000)
+
+    def end_session(self) -> None:
+        self.session_active = False
+        self.is_dirty = False
+        self.current_path = None
+        self.autosave_timer.stop()
+
+    def maybe_discard(self) -> bool:
+        """Return True if navigation can proceed."""
+        if not self.session_active or not self.is_dirty:
+            return True
+        resp = QMessageBox.question(
+            self,
+            "Discard changes?",
+            "Discard unsaved changes?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return resp == QMessageBox.StandardButton.Yes
 
     # ------------------------------------------------------------- VALUES --
     def get_current_values(self, index: int) -> Dict[str, Any]:
@@ -447,7 +480,7 @@ class MagnusClientIntakeForm(QMainWindow):
     # ------------------------------------------------------------- SIGNAL --
     def handle_field_change(self) -> None:
         self.state.update(self.get_current_values(self.current_page))
-        self.dirty = True
+        self.mark_dirty()
         self.update_groups(self.current_page)
         self.validate_current_page(self.current_page)
 
@@ -462,6 +495,11 @@ class MagnusClientIntakeForm(QMainWindow):
         open_act = QAction("Open…", self)
         open_act.triggered.connect(self.open_draft)
         menu.addAction(open_act)
+
+        home_act = QAction("Home", self)
+        home_act.setShortcut("Ctrl+H")
+        home_act.triggered.connect(self.go_home)
+        menu.addAction(home_act)
 
         save_act = QAction("Save", self)
         save_act.triggered.connect(self.save_draft)
@@ -479,10 +517,9 @@ class MagnusClientIntakeForm(QMainWindow):
 
     # ----------------------------------------------------------- AUTOSAVE --
     def init_autosave(self) -> None:
-        self._autosave_timer = QTimer(self)
-        self._autosave_timer.setInterval(60000)
-        self._autosave_timer.timeout.connect(lambda: self.save_draft(auto=True))
-        self._autosave_timer.start()
+        self.autosave_timer = QTimer(self)
+        self.autosave_timer.setInterval(60000)
+        self.autosave_timer.timeout.connect(lambda: self.save_draft(auto=True))
 
     # ------------------------------------------------------------ DRAFTS --
     def _default_drafts_dir(self) -> str:
@@ -495,17 +532,6 @@ class MagnusClientIntakeForm(QMainWindow):
         path = os.path.join(base, "Magnus", "Drafts")
         os.makedirs(path, exist_ok=True)
         return path
-
-    def confirm_discard(self) -> bool:
-        if not self.dirty:
-            return True
-        resp = QMessageBox.question(
-            self,
-            "Discard changes?",
-            "Discard unsaved changes?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        return resp == QMessageBox.StandardButton.Yes
 
     def _write_json_atomic(self, path: str, data: Dict[str, Any]) -> None:
         tmp = f"{path}.tmp"
@@ -525,7 +551,7 @@ class MagnusClientIntakeForm(QMainWindow):
         self.state.update(self.get_current_values(self.current_page))
         try:
             self._write_json_atomic(self.current_path, self.state)
-            self.dirty = False
+            self.is_dirty = False
             touch_mru(self.current_path)
             if not auto:
                 QMessageBox.information(
@@ -552,7 +578,7 @@ class MagnusClientIntakeForm(QMainWindow):
         self.save_draft()
 
     def open_draft(self) -> None:
-        if not self.confirm_discard():
+        if self.session_active and not self.maybe_discard():
             return
         dir_ = self._default_drafts_dir()
         path, _ = QFileDialog.getOpenFileName(
@@ -563,12 +589,12 @@ class MagnusClientIntakeForm(QMainWindow):
         self.open_draft_path(path)
 
     def new_draft(self) -> None:
-        if not self.confirm_discard():
+        if self.session_active and not self.maybe_discard():
             return
         self.state = build_default_state()
         self.current_path = None
-        self.dirty = False
         self.rebuild_pages()
+        self.start_session()
         self.show_wizard()
 
     def rebuild_pages(self) -> None:
@@ -580,7 +606,7 @@ class MagnusClientIntakeForm(QMainWindow):
         self.renderer = PageRenderer(self.state, VALIDATORS)
         for index, page_spec in enumerate(PAGES):
             page_widget, meta = self.renderer.render_page_from_spec(
-                page_spec, index, self.handle_field_change, self.on_next, self.on_back
+                page_spec, index, self.handle_field_change, self.on_next, self.on_back, self.go_home
             )
             self.stack.addWidget(page_widget)
             self.pages.append(meta)
@@ -601,13 +627,18 @@ class MagnusClientIntakeForm(QMainWindow):
     def show_wizard(self) -> None:
         self.root_stack.setCurrentIndex(1)
 
+    def go_home(self) -> None:
+        if not self.maybe_discard():
+            return
+        self.end_session()
+        self.show_home()
+
     def open_draft_path(self, path: str) -> None:
         try:
             with open(path, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
             self.state = migrate_state(data)
             self.current_path = path
-            self.dirty = False
             self.rebuild_pages()
             invalid = 0
             for i in range(len(self.pages)):
@@ -621,8 +652,17 @@ class MagnusClientIntakeForm(QMainWindow):
                 self.update_groups(invalid)
                 self.validate_current_page(invalid)
             touch_mru(path)
+            self.start_session()
             self.show_wizard()
         except Exception as e:
             QMessageBox.critical(self, "Open Draft", f"Failed to open draft:\n{e}")
             remove_from_mru(path)
+            self.end_session()
             self.show_home()
+
+    # -------------------------------------------------------------- CLOSE --
+    def closeEvent(self, event) -> None:  # type: ignore[override]
+        if self.session_active and not self.maybe_discard():
+            event.ignore()
+            return
+        event.accept()
