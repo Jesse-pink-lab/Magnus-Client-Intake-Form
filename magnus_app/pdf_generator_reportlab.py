@@ -31,6 +31,18 @@ except ImportError:
     print("ERROR: python-docx is not installed. Please run: pip install python-docx")
     sys.exit(1)
 
+from .validation import parse_usd, format_usd, parse_percent, format_percent
+
+
+def fmt_usd(val):
+    num = parse_usd(val)
+    return format_usd(num) if num is not None else "[Not provided]"
+
+
+def fmt_percent(val):
+    num = parse_percent(val)
+    return format_percent(num) if num is not None else "[Not provided]"
+
 def save_draft_word(form_data, output_path):
     """Save form data as a Word document draft"""
     try:
@@ -52,22 +64,20 @@ def save_draft_word(form_data, output_path):
         
         # Contact Information
         doc.add_heading('Contact Information', level=1)
-        doc.add_paragraph(f"Residential Address: {form_data.get('residential_address', '[Not provided]')}")
-        if form_data.get("mailing_address_different"):
-            doc.add_paragraph(f"Mailing Address: {form_data.get('mailing_address', '[Not provided]')}")
+        doc.add_paragraph(f"Residential Address: {form_data.get('address', '[Not provided]')}")
         doc.add_paragraph(f"Email: {form_data.get('email', '[Not provided]')}")
-        doc.add_paragraph(f"Home Phone: {form_data.get('home_phone', '[Not provided]')}")
-        doc.add_paragraph(f"Mobile Phone: {form_data.get('mobile_phone', '[Not provided]')}")
-        doc.add_paragraph(f"Work Phone: {form_data.get('work_phone', '[Not provided]')}")
+        doc.add_paragraph(f"Home Phone: {form_data.get('phone_home', '[Not provided]')}")
+        doc.add_paragraph(f"Mobile Phone: {form_data.get('phone_mobile', '[Not provided]')}")
+        doc.add_paragraph(f"Work Phone: {form_data.get('phone_work', '[Not provided]')}")
         doc.add_paragraph()
         
         # Employment Information
         doc.add_heading('Employment Information', level=1)
         doc.add_paragraph(f"Employment Status: {form_data.get('employment_status', '[Not provided]')}")
         doc.add_paragraph(f"Employer Name: {form_data.get('employer_name', '[Not provided]')}")
-        doc.add_paragraph(f"Occupation/Title: {form_data.get('occupation', '[Not provided]')}")
-        doc.add_paragraph(f"Years Employed: {form_data.get('years_employed', '[Not provided]')}")
-        doc.add_paragraph(f"Annual Income: {form_data.get('annual_income', '[Not provided]')}")
+        doc.add_paragraph(f"Occupation/Title: {form_data.get('job_title', '[Not provided]')}")
+        doc.add_paragraph(f"Years Employed: {form_data.get('years_with_employer', '[Not provided]')}")
+        doc.add_paragraph(f"Annual Income: {fmt_usd(form_data.get('annual_income'))}")
         doc.add_paragraph(f"Employer Address: {form_data.get('employer_address', '[Not provided]')}")
         
         # Retirement Information (if applicable)
@@ -82,12 +92,12 @@ def save_draft_word(form_data, output_path):
         # Financial Information
         doc.add_heading('Financial Information', level=1)
         doc.add_paragraph(f"Education Status: {form_data.get('education_status', '[Not provided]')}")
-        doc.add_paragraph(f"Estimated Tax Bracket: {form_data.get('tax_bracket', '[Not provided]')}")
+        doc.add_paragraph(f"Estimated Tax Bracket: {fmt_percent(form_data.get('est_tax_bracket'))}")
         doc.add_paragraph(f"Investment Risk Tolerance: {form_data.get('risk_tolerance', '[Not provided]')}")
         doc.add_paragraph(f"Investment Objectives: {form_data.get('investment_objectives', '[Not provided]')}")
-        doc.add_paragraph(f"Net Worth (excluding primary home): {form_data.get('net_worth', '[Not provided]')}")
-        doc.add_paragraph(f"Liquid Net Worth: {form_data.get('liquid_net_worth', '[Not provided]')}")
-        doc.add_paragraph(f"Assets Held Away: {form_data.get('assets_held_away', '[Not provided]')}")
+        doc.add_paragraph(f"Net Worth (excluding primary home): {fmt_usd(form_data.get('est_net_worth'))}")
+        doc.add_paragraph(f"Liquid Net Worth: {fmt_usd(form_data.get('est_liquid_net_worth'))}")
+        doc.add_paragraph(f"Assets Held Away: {fmt_usd(form_data.get('assets_held_away'))}")
         doc.add_paragraph()
         
         # Spouse Information (if applicable)
@@ -98,7 +108,7 @@ def save_draft_word(form_data, output_path):
             doc.add_paragraph(f"Spouse SSN: {form_data.get('spouse_ssn', '[Not provided]')}")
             doc.add_paragraph(f"Spouse Employment Status: {form_data.get('spouse_employment_status', '[Not provided]')}")
             doc.add_paragraph(f"Spouse Employer Name: {form_data.get('spouse_employer_name', '[Not provided]')}")
-            doc.add_paragraph(f"Spouse Occupation/Title: {form_data.get('spouse_occupation', '[Not provided]')}")
+            doc.add_paragraph(f"Spouse Occupation/Title: {form_data.get('spouse_job_title', '[Not provided]')}")
             doc.add_paragraph()
         else:
             doc.add_heading('Spouse/Partner Information', level=1)
@@ -111,7 +121,7 @@ def save_draft_word(form_data, output_path):
         if dependents:
             for i, dep in enumerate(dependents):
                 doc.add_paragraph(f"Dependent {i+1}:")
-                doc.add_paragraph(f"  Name: {dep.get('name', '[Not provided]')}")
+                doc.add_paragraph(f"  Name: {dep.get('full_name', '[Not provided]')}")
                 doc.add_paragraph(f"  Date of Birth: {dep.get('dob', '[Not provided]')}")
                 doc.add_paragraph(f"  Relationship: {dep.get('relationship', '[Not provided]')}")
         else:
@@ -124,11 +134,10 @@ def save_draft_word(form_data, output_path):
         if beneficiaries:
             for i, ben in enumerate(beneficiaries):
                 doc.add_paragraph(f"Beneficiary {i+1}:")
-                doc.add_paragraph(f"  Name: {ben.get('name', '[Not provided]')}")
+                doc.add_paragraph(f"  Name: {ben.get('full_name', '[Not provided]')}")
                 doc.add_paragraph(f"  Date of Birth: {ben.get('dob', '[Not provided]')}")
                 doc.add_paragraph(f"  Relationship: {ben.get('relationship', '[Not provided]')}")
-                percentage = ben.get('percentage', '')
-                doc.add_paragraph(f"  Percentage: {percentage}%" if percentage else "  Percentage: [Not provided]")
+                doc.add_paragraph(f"  Percentage: {fmt_percent(ben.get('allocation'))}")
         else:
             doc.add_paragraph("No beneficiaries specified")
         doc.add_paragraph()
@@ -181,7 +190,7 @@ def save_draft_word(form_data, output_path):
         
         # Regulatory Consent
         doc.add_heading('Regulatory Consent', level=1)
-        electronic_consent = form_data.get("electronic_delivery_consent", "No") or "No"
+        electronic_consent = form_data.get("ed_consent", "No") or "No"
         doc.add_paragraph(f"Electronic Delivery Consent: {electronic_consent}")
         
         # Save document
@@ -228,18 +237,11 @@ def generate_pdf_report(form_data, output_path):
 
         # Helper function to format monetary values
         def format_money(value):
-            if value:
-                try:
-                    return f"${int(value):,}"
-                except (ValueError, TypeError):
-                    return str(value)
-            return "[Not provided]"
+            return fmt_usd(value)
 
         # Helper function to format percentages
         def format_percentage(value):
-            if value is not None:
-                return f"{value}%"
-            return "[Not provided]"
+            return fmt_percent(value)
 
         def safe(s):
             return "" if s is None else str(s)
@@ -263,11 +265,11 @@ def generate_pdf_report(form_data, output_path):
         investment_purpose = ", ".join(investment_purposes)
 
         objectives_map = [
-            ("obj_trading_profits_rank", "Trading Profits"),
-            ("obj_speculation_rank", "Speculation"),
-            ("obj_capital_app_rank", "Capital Appreciation"),
-            ("obj_income_rank", "Income"),
-            ("obj_preservation_rank", "Preservation of Capital"),
+            ("rank_trading_profits", "Trading Profits"),
+            ("rank_speculation", "Speculation"),
+            ("rank_capital_appreciation", "Capital Appreciation"),
+            ("rank_income", "Income"),
+            ("rank_preservation", "Preservation of Capital"),
         ]
         investment_objective = "\n".join(
             f"{label}: {form_data.get(key)}" for key, label in objectives_map if form_data.get(key)
@@ -295,7 +297,7 @@ def generate_pdf_report(form_data, output_path):
                     "name": form_data.get("ben_full_name"),
                     "dob": form_data.get("ben_dob"),
                     "relationship": form_data.get("ben_relationship"),
-                    "percentage": form_data.get("ben_allocation_pct"),
+                    "allocation": form_data.get("ben_allocation_pct"),
                 }
             ]
 
@@ -350,8 +352,8 @@ def generate_pdf_report(form_data, output_path):
 
         # Financial Information
         content.append(Paragraph("Financial Information", heading_style))
-        content.append(Paragraph(f"Education Status: {form_data.get('education', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Estimated Tax Bracket: {form_data.get('tax_bracket', '[Not provided]')}", normal_style))
+        content.append(Paragraph(f"Education Status: {form_data.get('education_status', '[Not provided]')}", normal_style))
+        content.append(Paragraph(f"Estimated Tax Bracket: {format_percentage(form_data.get('est_tax_bracket'))}", normal_style))
         content.append(Paragraph(f"Investment Risk Tolerance: {form_data.get('risk_tolerance', '[Not provided]')}", normal_style))
         
         # Investment Purpose
@@ -392,7 +394,7 @@ def generate_pdf_report(form_data, output_path):
             table_data = [["Name", "Date of Birth", "Relationship"]]
             for dep in dependents:
                 table_data.append([
-                    dep.get('name', 'Not provided') or 'Not provided',
+                    dep.get('full_name', 'Not provided') or 'Not provided',
                     dep.get('dob', 'Not provided') or 'Not provided',
                     dep.get('relationship', 'Not provided') or 'Not provided',
                 ])
@@ -412,10 +414,10 @@ def generate_pdf_report(form_data, output_path):
             table_data = [["Name", "Date of Birth", "Relationship", "Allocation (%)"]]
             for ben in beneficiaries:
                 table_data.append([
-                    ben.get('name', 'Not provided') or 'Not provided',
+                    ben.get('full_name', 'Not provided') or 'Not provided',
                     ben.get('dob', 'Not provided') or 'Not provided',
                     ben.get('relationship', 'Not provided') or 'Not provided',
-                    format_percentage(ben.get('percentage')),
+                    format_percentage(ben.get('allocation')),
                 ])
             table = Table(table_data, hAlign='LEFT')
             table.setStyle(TableStyle([
@@ -595,7 +597,7 @@ def generate_pdf_report(form_data, output_path):
 
         # Regulatory Consent
         content.append(Paragraph("Regulatory Consent", heading_style))
-        electronic_consent = form_data.get('electronic_delivery_consent', 'No') or 'No'
+        electronic_consent = form_data.get('ed_consent', 'No') or 'No'
         content.append(Paragraph(f"Electronic Delivery Consent: {electronic_consent}", normal_style))
         
         # Add page numbers
