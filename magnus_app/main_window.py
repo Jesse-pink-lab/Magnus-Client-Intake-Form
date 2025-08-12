@@ -512,12 +512,10 @@ class MagnusClientIntakeForm(QMainWindow):
                     valid = False
 
 
+        # Always keep the Next button enabled so users can navigate forward
+        # even if required fields are missing. A warning will be shown when
+        # attempting to proceed with incomplete information.
         meta["next_btn"].setEnabled(True)
-
-
-        meta["next_btn"].setEnabled(True)
-
-        meta["next_btn"].setEnabled(valid)
 
         return valid
 
