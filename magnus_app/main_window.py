@@ -1,12 +1,16 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+import json
+import os
+import sys
 
 from PyQt6.QtWidgets import (
     QHBoxLayout, QMainWindow, QProgressBar, QPushButton, QStackedWidget,
     QVBoxLayout, QWidget, QScrollArea, QTextEdit, QLabel, QFileDialog, QMessageBox
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QAction
 from .pages import PAGES
-from .state import STATE_FILE, load_state, save_state
+from .state import STATE_FILE, load_state, save_state, build_default_state, migrate_state
 from .renderer import PageRenderer
 from .validation import VALIDATORS
 # PDF generator (optional)
@@ -25,7 +29,11 @@ class MagnusClientIntakeForm(QMainWindow):
         self.current_page = 0
         self.pages: List[Dict[str, Any]] = []
         self.renderer = PageRenderer(self.state, VALIDATORS)
+        self.current_path: Optional[str] = None
+        self.dirty = False
         self.init_ui()
+        self.init_menu()
+        self.init_autosave()
 
     # ------------------------------------------------------------------ UI --
     def init_ui(self) -> None:
@@ -121,7 +129,7 @@ class MagnusClientIntakeForm(QMainWindow):
         row.addStretch()
 
         save_btn = QPushButton("Save Draft")
-        save_btn.clicked.connect(lambda: save_state(STATE_FILE, self.state))
+        save_btn.clicked.connect(self.save_draft)
         row.addWidget(save_btn)
 
         gen_btn = QPushButton("Generate PDF Report")
@@ -414,5 +422,160 @@ class MagnusClientIntakeForm(QMainWindow):
     # ------------------------------------------------------------- SIGNAL --
     def handle_field_change(self) -> None:
         self.state.update(self.get_current_values(self.current_page))
+        self.dirty = True
         self.update_groups(self.current_page)
         self.validate_current_page(self.current_page)
+
+    # --------------------------------------------------------------- MENU --
+    def init_menu(self) -> None:
+        menu = self.menuBar().addMenu("File")
+
+        new_act = QAction("New Draft", self)
+        new_act.triggered.connect(self.new_draft)
+        menu.addAction(new_act)
+
+        open_act = QAction("Open…", self)
+        open_act.triggered.connect(self.open_draft)
+        menu.addAction(open_act)
+
+        save_act = QAction("Save", self)
+        save_act.triggered.connect(self.save_draft)
+        menu.addAction(save_act)
+
+        save_as_act = QAction("Save As…", self)
+        save_as_act.triggered.connect(self.save_draft_as)
+        menu.addAction(save_as_act)
+
+        menu.addSeparator()
+
+        exit_act = QAction("Exit", self)
+        exit_act.triggered.connect(self.close)
+        menu.addAction(exit_act)
+
+    # ----------------------------------------------------------- AUTOSAVE --
+    def init_autosave(self) -> None:
+        self._autosave_timer = QTimer(self)
+        self._autosave_timer.setInterval(60000)
+        self._autosave_timer.timeout.connect(lambda: self.save_draft(auto=True))
+        self._autosave_timer.start()
+
+    # ------------------------------------------------------------ DRAFTS --
+    def _default_drafts_dir(self) -> str:
+        if sys.platform.startswith("win"):
+            base = os.environ.get("APPDATA") or os.path.expanduser("~")
+        elif sys.platform == "darwin":
+            base = os.path.expanduser("~/Library/Application Support")
+        else:
+            base = os.path.expanduser("~/.local/share")
+        path = os.path.join(base, "Magnus", "Drafts")
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    def confirm_discard(self) -> bool:
+        if not self.dirty:
+            return True
+        resp = QMessageBox.question(
+            self,
+            "Discard changes?",
+            "Discard unsaved changes?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        return resp == QMessageBox.StandardButton.Yes
+
+    def _write_json_atomic(self, path: str, data: Dict[str, Any]) -> None:
+        tmp = f"{path}.tmp"
+        directory = os.path.dirname(path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2)
+        os.replace(tmp, path)
+
+    def save_draft(self, auto: bool = False) -> None:
+        if self.current_path is None:
+            if auto:
+                return
+            self.save_draft_as()
+            return
+        self.state.update(self.get_current_values(self.current_page))
+        try:
+            self._write_json_atomic(self.current_path, self.state)
+            self.dirty = False
+            if not auto:
+                QMessageBox.information(
+                    self, "Save Draft", f"Draft saved:\n{self.current_path}"
+                )
+        except Exception as e:
+            if not auto:
+                QMessageBox.critical(self, "Save Draft", f"Failed to save draft:\n{e}")
+
+    def save_draft_as(self) -> None:
+        dir_ = self._default_drafts_dir()
+        default = os.path.join(dir_, "draft.json")
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Draft As", default, "JSON Files (*.json)"
+        )
+        if not path:
+            return
+        self.current_path = path
+        self.save_draft()
+
+    def open_draft(self) -> None:
+        if not self.confirm_discard():
+            return
+        dir_ = self._default_drafts_dir()
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Open Draft", dir_, "JSON Files (*.json)"
+        )
+        if not path:
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            self.state = migrate_state(data)
+            self.current_path = path
+            self.dirty = False
+            self.rebuild_pages()
+            invalid = 0
+            for i in range(len(self.pages)):
+                if not self.validate_current_page(i):
+                    invalid = i
+                    break
+            self.current_page = invalid
+            self.stack.setCurrentIndex(invalid)
+            self.update_progress()
+            if invalid < len(self.pages):
+                self.update_groups(invalid)
+                self.validate_current_page(invalid)
+        except Exception as e:
+            QMessageBox.critical(self, "Open Draft", f"Failed to open draft:\n{e}")
+
+    def new_draft(self) -> None:
+        if not self.confirm_discard():
+            return
+        self.state = build_default_state()
+        self.current_path = None
+        self.dirty = False
+        self.rebuild_pages()
+
+    def rebuild_pages(self) -> None:
+        while self.stack.count():
+            w = self.stack.widget(0)
+            self.stack.removeWidget(w)
+            w.deleteLater()
+        self.pages = []
+        self.renderer = PageRenderer(self.state, VALIDATORS)
+        for index, page_spec in enumerate(PAGES):
+            page_widget, meta = self.renderer.render_page_from_spec(
+                page_spec, index, self.handle_field_change, self.on_next, self.on_back
+            )
+            self.stack.addWidget(page_widget)
+            self.pages.append(meta)
+        review = self._build_review_page()
+        self.stack.addWidget(review)
+        self.current_page = 0
+        self.stack.setCurrentIndex(0)
+        self.update_progress()
+        if self.pages:
+            self.update_groups(0)
+            self.validate_current_page(0)
