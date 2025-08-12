@@ -45,6 +45,7 @@ class MagnusClientIntakeForm(QMainWindow):
         self.current_path: Optional[str] = None
         self.session_active: bool = False
         self.is_dirty: bool = False
+        self.last_invalid_fields: List[str] = []
         self.init_ui()
         self.init_menu()
         self.init_autosave()
@@ -94,19 +95,22 @@ class MagnusClientIntakeForm(QMainWindow):
 
     # ---------------------------------------------------------- NAVIGATION --
     def on_next(self) -> None:
-
         # Run validation to update field highlighting but always allow navigation
-        self.validate_current_page(self.current_page)
         valid = self.validate_current_page(self.current_page)
         if not valid:
-            QMessageBox.warning(
-                self,
-                "Incomplete Information",
-                (
+            fields = "\n".join(f"• {name}" for name in self.last_invalid_fields)
+            if fields:
+                msg = (
+                    "The following fields are missing or invalid:\n\n"
+                    f"{fields}\n\n"
+                    "You may continue, but please review before submitting."
+                )
+            else:
+                msg = (
                     "Some fields on this page are missing or invalid.\n"
                     "You may continue, but please review before submitting."
-                ),
-            )
+                )
+            QMessageBox.warning(self, "Incomplete Information", msg)
 
         # still inside form pages
         if self.current_page < len(self.pages):
@@ -450,11 +454,14 @@ class MagnusClientIntakeForm(QMainWindow):
         values = self.get_current_values(index)
         merged = dict(self.state)
         merged.update(values)
+        inputs = meta.get("inputs", {})
+        invalid_fields: List[str] = []
         valid = True
 
         for section in meta["spec"].get("sections", []):
             for field in self.renderer.iterate_fields(section.get("fields", []), merged):
                 name = field.get("name")
+                label = field.get("label", name)
                 rg = field.get("_rg")
                 if rg:
                     grp = rg["name"]
@@ -464,59 +471,61 @@ class MagnusClientIntakeForm(QMainWindow):
                         value = value[i].get(name, "")
                     else:
                         value = ""
+                    label = f"{label} {i + 1}"
                 else:
                     value = values.get(name, "")
                 if field.get("required"):
                     if field["type"] == "checkbox":
                         if not value:
                             valid = False
+                            invalid_fields.append(label)
                     elif not value:
                         valid = False
-                if valid and field.get("validate") and value not in ("", False):
+                        invalid_fields.append(label)
+                if field.get("validate") and value not in ("", False):
                     validator = VALIDATORS.get(field["validate"])
                     if validator:
+                        ok = True
                         try:
-                            if not validator(value, merged):
-                                valid = False
+                            ok = validator(value, merged)
                         except TypeError:
-                            if not validator(value):
-                                valid = False
-                if not valid:
-                    break
-            if not valid:
-                break
+                            ok = validator(value)
+                        if not ok:
+                            valid = False
+                            invalid_fields.append(label)
 
-        if valid:
-            inputs = meta.get("inputs", {})
-            # Totals cross-check
-            if {"est_net_worth", "est_liquid_net_worth"}.issubset(inputs.keys()):
-                if not VALIDATORS["liquid_lte_net"]("", merged):
-                    valid = False
-            # Beneficiaries allocation sum
-            if "beneficiaries" in inputs:
-                if not VALIDATORS["beneficiaries_sum_100"]("", merged):
-                    valid = False
-            # Objective ranks unique
-            if {"rank_trading_profits", "rank_speculation", "rank_capital_appreciation", "rank_income", "rank_preservation"}.issubset(inputs.keys()):
-                if not VALIDATORS["objective_ranks_unique"]("", merged):
-                    valid = False
-            # Investment purpose at least one
-            purpose_fields = [
-                "inv_purpose_income",
-                "inv_purpose_growth_income",
-                "inv_purpose_cap_app",
-                "inv_purpose_speculation",
-            ]
-            if any(k in inputs for k in purpose_fields):
-                if not any(merged.get(k) for k in purpose_fields):
-                    valid = False
+        if {"est_net_worth", "est_liquid_net_worth"}.issubset(inputs.keys()):
+            if not VALIDATORS["liquid_lte_net"]("", merged):
+                valid = False
+                invalid_fields.append("Liquid Net Worth vs Net Worth")
+        if "beneficiaries" in inputs:
+            if not VALIDATORS["beneficiaries_sum_100"]("", merged):
+                valid = False
+                invalid_fields.append("Beneficiaries Allocation Total")
+        obj_fields = {
+            "rank_trading_profits",
+            "rank_speculation",
+            "rank_capital_appreciation",
+            "rank_income",
+            "rank_preservation",
+        }
+        if obj_fields.issubset(inputs.keys()):
+            if not VALIDATORS["objective_ranks_unique"]("", merged):
+                valid = False
+                invalid_fields.append("Investment Objective Rankings")
+        purpose_fields = [
+            "inv_purpose_income",
+            "inv_purpose_growth_income",
+            "inv_purpose_cap_app",
+            "inv_purpose_speculation",
+        ]
+        if any(k in inputs for k in purpose_fields):
+            if not any(merged.get(k) for k in purpose_fields):
+                valid = False
+                invalid_fields.append("Investment Purpose")
 
-
-        # Always keep the Next button enabled so users can navigate forward
-        # even if required fields are missing. A warning will be shown when
-        # attempting to proceed with incomplete information.
         meta["next_btn"].setEnabled(True)
-
+        self.last_invalid_fields = invalid_fields
         return valid
 
     # ------------------------------------------------------------- SIGNAL --
