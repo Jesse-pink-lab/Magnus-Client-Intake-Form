@@ -4,6 +4,7 @@ import os
 import sys
 import subprocess
 import datetime
+from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -30,6 +31,9 @@ from .renderer import PageRenderer
 from .validation import VALIDATORS
 from .home_page import HomePage
 from .mru import get_mru, touch_mru, remove_from_mru
+
+DRAFT_FILTER = "Magnus Draft (*.mgd)"
+PDF_FILTER = "PDF Files (*.pdf)"
 # PDF generator (optional)
 try:
     from . import pdf_generator_reportlab as pdfgen
@@ -52,7 +56,6 @@ class MagnusClientIntakeForm(QMainWindow):
         self.last_invalid_fields: List[str] = []
         self.is_tearing_down: bool = False
         self.is_navigating: bool = False
-        self.force_non_native_dialogs = os.environ.get("MAGNUS_QT_NON_NATIVE") == "1"
         self.init_ui()
         self.init_menu()
         self.init_autosave()
@@ -75,6 +78,8 @@ class MagnusClientIntakeForm(QMainWindow):
         # Wizard container
         wizard = QWidget()
         root_layout = QVBoxLayout(wizard)
+        root_layout.setContentsMargins(12, 8, 12, 8)
+        root_layout.setSpacing(8)
 
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
@@ -165,7 +170,8 @@ class MagnusClientIntakeForm(QMainWindow):
     def _build_review_page(self) -> QWidget:
         page = QWidget()
         outer = QVBoxLayout(page)
-        outer.setContentsMargins(0,0,0,0)
+        outer.setContentsMargins(12, 8, 12, 8)
+        outer.setSpacing(8)
 
         title = QLabel("Review & Submit")
         title.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
@@ -394,36 +400,27 @@ class MagnusClientIntakeForm(QMainWindow):
     def _suggest_pdf_name(self) -> str:
         name = self.state.get("full_name") or "Client"
         date = datetime.date.today().strftime("%Y-%m-%d")
-        return os.path.join(self._default_drafts_dir(), f"{name} - Magnus Intake {date}.pdf")
+        return f"{name} - Magnus Intake {date}"
 
-    def pick_pdf_path(self, suggested_name: str) -> Optional[str]:
-        options = QFileDialog.Option(0)
-        if self.force_non_native_dialogs:
-            options |= QFileDialog.Option.DontUseNativeDialog
-        try:
-            path, _ = QFileDialog.getSaveFileName(
-                self,
-                "Save PDF Report",
-                suggested_name,
-                "PDF Files (*.pdf)",
-                options=options,
-            )
-        except Exception:
-            path, _ = QFileDialog.getSaveFileName(
-                self,
-                "Save PDF Report",
-                suggested_name,
-                "PDF Files (*.pdf)",
-                options=QFileDialog.Option.DontUseNativeDialog,
-            )
-        return path or None
+    def pick_save_pdf_path(self, suggested_name: str) -> str | None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save PDF Report",
+            str(self.default_drafts_dir() / f"{suggested_name}.pdf"),
+            PDF_FILTER,
+        )
+        if not path:
+            return None
+        if not path.lower().endswith(".pdf"):
+            path += ".pdf"
+        return path
 
     def _generate_pdf(self) -> None:
         if pdfgen is None or not hasattr(pdfgen, "generate"):
             QMessageBox.warning(self, "PDF", "PDF generator module not available.")
             return
         suggested = self._suggest_pdf_name()
-        path = self.pick_pdf_path(suggested)
+        path = self.pick_save_pdf_path(suggested)
         if not path:
             return
         try:
@@ -685,16 +682,38 @@ class MagnusClientIntakeForm(QMainWindow):
             _log(f"AUTOSAVE ERROR: {e}")
 
     # ------------------------------------------------------------ DRAFTS --
-    def _default_drafts_dir(self) -> str:
+    def default_drafts_dir(self) -> Path:
         if sys.platform.startswith("win"):
-            base = os.environ.get("APPDATA") or os.path.expanduser("~")
+            base = Path(os.environ.get("APPDATA") or Path.home())
         elif sys.platform == "darwin":
-            base = os.path.expanduser("~/Library/Application Support")
+            base = Path.home() / "Library" / "Application Support"
         else:
-            base = os.path.expanduser("~/.local/share")
-        path = os.path.join(base, "Magnus", "Drafts")
-        os.makedirs(path, exist_ok=True)
+            base = Path.home() / ".local" / "share"
+        path = base / "Magnus" / "Drafts"
+        path.mkdir(parents=True, exist_ok=True)
         return path
+
+    def pick_save_draft_path(self) -> str | None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Draft",
+            str(self.default_drafts_dir()),
+            DRAFT_FILTER,
+        )
+        if not path:
+            return None
+        if not path.lower().endswith(".mgd"):
+            path += ".mgd"
+        return path
+
+    def pick_open_draft_path(self) -> str | None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open Draft",
+            str(self.default_drafts_dir()),
+            DRAFT_FILTER,
+        )
+        return path or None
 
     def do_save(self, path: str) -> bool:
         if not path:
@@ -727,37 +746,25 @@ class MagnusClientIntakeForm(QMainWindow):
                     self, "Save Draft", f"Draft saved:\n{self.current_path}"
                 )
         else:
-            self.save_draft_as()
+            path = self.pick_save_draft_path()
+            if path and self.do_save(path):
+                QMessageBox.information(
+                    self, "Save Draft", f"Draft saved:\n{path}"
+                )
 
     def save_draft_as(self) -> None:
-        dir_ = self._default_drafts_dir()
-        dlg = QFileDialog(self, "Save Draft")
-        dlg.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
-        dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        dlg.setNameFilters(["Magnus Draft (*.mgd)", "JSON (*.json)"])
-        dlg.setDirectory(dir_)
-        dlg.setDefaultSuffix("mgd")
-        if dlg.exec():
-            paths = dlg.selectedFiles()
-            if paths:
-                path = paths[0]
-                self.state.update(self.get_current_values(self.current_page))
-                if self.do_save(path):
-                    QMessageBox.information(self, "Save Draft", f"Draft saved:\n{path}")
+        path = self.pick_save_draft_path()
+        if path:
+            self.state.update(self.get_current_values(self.current_page))
+            if self.do_save(path):
+                QMessageBox.information(self, "Save Draft", f"Draft saved:\n{path}")
 
     def open_draft(self) -> None:
         if self.session_active and not self.maybe_discard():
             return
-        dir_ = self._default_drafts_dir()
-        dlg = QFileDialog(self, "Open Draft")
-        dlg.setFileMode(QFileDialog.FileMode.ExistingFile)
-        dlg.setNameFilters(["Draft Files (*.mgd *.json)"])
-        dlg.setDirectory(dir_)
-        dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        if dlg.exec():
-            paths = dlg.selectedFiles()
-            if paths:
-                self.open_draft_path(paths[0])
+        path = self.pick_open_draft_path()
+        if path:
+            self.open_draft_path(path)
 
     def new_draft(self) -> None:
         if self.session_active and not self.maybe_discard():
