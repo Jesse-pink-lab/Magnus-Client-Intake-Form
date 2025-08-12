@@ -6,7 +6,6 @@ import io
 import platform
 import datetime
 import traceback
-import logging
 from pathlib import Path
 
 
@@ -133,31 +132,8 @@ _log(f"argv: {sys.argv}")
 install_qt_message_handler()
 
 
-def resource_path(*parts) -> str:
-    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base, *parts)
-
-
-def load_stylesheet(app) -> None:
-    qss_path = resource_path("theme.qss")
-    try:
-        if not os.path.exists(qss_path):
-            logging.warning("[QSS] Not found: %s", qss_path)
-            return
-        with open(qss_path, "r", encoding="utf-8") as f:
-            qss = f.read()
-        if not qss.strip():
-            logging.warning("[QSS] Empty stylesheet: %s", qss_path)
-            return
-        app.setStyleSheet(qss)
-        logging.info("[QSS] Applied: %s (%d chars)", qss_path, len(qss))
-    except Exception as e:
-        logging.exception("[QSS] Failed to load %s: %s", qss_path, e)
-
-
 def main() -> None:
-    from PyQt6.QtGui import QPalette, QColor
-    from PyQt6.QtWidgets import QApplication, QStyleFactory
+    from PyQt6.QtWidgets import QApplication
 
     from .main_window import MagnusClientIntakeForm
 
@@ -165,16 +141,14 @@ def main() -> None:
 
     app = QApplication(sys.argv)
 
-    # Consistent, light baseline (prevents platform dark themes)
-    app.setStyle(QStyleFactory.create("Fusion"))
-    pal = QPalette()
-    pal.setColor(QPalette.ColorRole.Window, QColor("#f7f8fa"))
-    pal.setColor(QPalette.ColorRole.Base, QColor("#ffffff"))
-    pal.setColor(QPalette.ColorRole.Text, QColor("#111827"))
-    pal.setColor(QPalette.ColorRole.Button, QColor("#1677ff"))
-    pal.setColor(QPalette.ColorRole.ButtonText, QColor("#ffffff"))
-    app.setPalette(pal)
-    load_stylesheet(app)
+    qss_path = Path(__file__).with_name("theme.qss")
+    if qss_path.exists():
+        try:
+            css = qss_path.read_text(encoding="utf-8").strip()
+            if css:
+                app.setStyleSheet(css)
+        except Exception:
+            pass
 
     form = MagnusClientIntakeForm()
 
