@@ -101,3 +101,8 @@ QProgressBar::chunk { background-color: #3b82f6; border-radius: 8px; }
 
 /* Radio/checkbox spacing */
 QRadioButton, QCheckBox { padding: 4px 2px; }
+
+/* Home page */
+#homeTitle { font-size: 24px; font-weight: 700; margin: 24px 0 12px; }
+#recentTable { background: #ffffff; border: 1px solid #e5e7eb; }
+#recentTable::item:hover { background: #f1f5f9; }

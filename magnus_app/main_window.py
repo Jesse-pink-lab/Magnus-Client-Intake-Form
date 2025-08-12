@@ -4,15 +4,28 @@ import os
 import sys
 
 from PyQt6.QtWidgets import (
-    QHBoxLayout, QMainWindow, QProgressBar, QPushButton, QStackedWidget,
-    QVBoxLayout, QWidget, QScrollArea, QTextEdit, QLabel, QFileDialog, QMessageBox
+    QHBoxLayout,
+    QMainWindow,
+    QProgressBar,
+    QPushButton,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
+    QScrollArea,
+    QTextEdit,
+    QLabel,
+    QFileDialog,
+    QMessageBox,
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction
+
 from .pages import PAGES
 from .state import STATE_FILE, load_state, save_state, build_default_state, migrate_state
 from .renderer import PageRenderer
 from .validation import VALIDATORS
+from .home_page import HomePage
+from .mru import get_mru, touch_mru, remove_from_mru
 # PDF generator (optional)
 try:
     from . import pdf_generator_reportlab as pdfgen
@@ -40,9 +53,19 @@ class MagnusClientIntakeForm(QMainWindow):
         self.setWindowTitle("Magnus Client Intake Form")
         self.resize(800, 600)
 
-        central = QWidget()
-        self.setCentralWidget(central)
-        root_layout = QVBoxLayout(central)
+        self.root_stack = QStackedWidget()
+        self.setCentralWidget(self.root_stack)
+
+        # Home page
+        self.home = HomePage()
+        self.home.newRequested.connect(self.new_draft)
+        self.home.openDialogRequested.connect(self.open_draft)
+        self.home.openPathRequested.connect(self.open_draft_path)
+        self.root_stack.addWidget(self.home)
+
+        # Wizard container
+        wizard = QWidget()
+        root_layout = QVBoxLayout(wizard)
 
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
@@ -50,6 +73,8 @@ class MagnusClientIntakeForm(QMainWindow):
 
         self.stack = QStackedWidget()
         root_layout.addWidget(self.stack, 1)
+
+        self.root_stack.addWidget(wizard)
 
         for index, page_spec in enumerate(PAGES):
             page_widget, meta = self.renderer.render_page_from_spec(
@@ -501,6 +526,7 @@ class MagnusClientIntakeForm(QMainWindow):
         try:
             self._write_json_atomic(self.current_path, self.state)
             self.dirty = False
+            touch_mru(self.current_path)
             if not auto:
                 QMessageBox.information(
                     self, "Save Draft", f"Draft saved:\n{self.current_path}"
@@ -511,12 +537,17 @@ class MagnusClientIntakeForm(QMainWindow):
 
     def save_draft_as(self) -> None:
         dir_ = self._default_drafts_dir()
-        default = os.path.join(dir_, "draft.json")
+        default = os.path.join(dir_, "draft.mgd")
         path, _ = QFileDialog.getSaveFileName(
-            self, "Save Draft As", default, "JSON Files (*.json)"
+            self,
+            "Save Draft As",
+            default,
+            "Magnus Draft (*.mgd);;JSON (*.json)",
         )
         if not path:
             return
+        if not os.path.splitext(path)[1]:
+            path += ".mgd"
         self.current_path = path
         self.save_draft()
 
@@ -525,30 +556,11 @@ class MagnusClientIntakeForm(QMainWindow):
             return
         dir_ = self._default_drafts_dir()
         path, _ = QFileDialog.getOpenFileName(
-            self, "Open Draft", dir_, "JSON Files (*.json)"
+            self, "Open Draft", dir_, "Draft Files (*.mgd *.json)"
         )
         if not path:
             return
-        try:
-            with open(path, "r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            self.state = migrate_state(data)
-            self.current_path = path
-            self.dirty = False
-            self.rebuild_pages()
-            invalid = 0
-            for i in range(len(self.pages)):
-                if not self.validate_current_page(i):
-                    invalid = i
-                    break
-            self.current_page = invalid
-            self.stack.setCurrentIndex(invalid)
-            self.update_progress()
-            if invalid < len(self.pages):
-                self.update_groups(invalid)
-                self.validate_current_page(invalid)
-        except Exception as e:
-            QMessageBox.critical(self, "Open Draft", f"Failed to open draft:\n{e}")
+        self.open_draft_path(path)
 
     def new_draft(self) -> None:
         if not self.confirm_discard():
@@ -557,6 +569,7 @@ class MagnusClientIntakeForm(QMainWindow):
         self.current_path = None
         self.dirty = False
         self.rebuild_pages()
+        self.show_wizard()
 
     def rebuild_pages(self) -> None:
         while self.stack.count():
@@ -579,3 +592,37 @@ class MagnusClientIntakeForm(QMainWindow):
         if self.pages:
             self.update_groups(0)
             self.validate_current_page(0)
+
+    # -------------------------------------------------------------- HOME/WIZARD --
+    def show_home(self) -> None:
+        self.home.refresh(get_mru())
+        self.root_stack.setCurrentWidget(self.home)
+
+    def show_wizard(self) -> None:
+        self.root_stack.setCurrentIndex(1)
+
+    def open_draft_path(self, path: str) -> None:
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            self.state = migrate_state(data)
+            self.current_path = path
+            self.dirty = False
+            self.rebuild_pages()
+            invalid = 0
+            for i in range(len(self.pages)):
+                if not self.validate_current_page(i):
+                    invalid = i
+                    break
+            self.current_page = invalid
+            self.stack.setCurrentIndex(invalid)
+            self.update_progress()
+            if invalid < len(self.pages):
+                self.update_groups(invalid)
+                self.validate_current_page(invalid)
+            touch_mru(path)
+            self.show_wizard()
+        except Exception as e:
+            QMessageBox.critical(self, "Open Draft", f"Failed to open draft:\n{e}")
+            remove_from_mru(path)
+            self.show_home()
