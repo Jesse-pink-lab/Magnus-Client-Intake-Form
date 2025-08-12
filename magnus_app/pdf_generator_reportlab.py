@@ -17,8 +17,11 @@ try:
     from reportlab.lib.pagesizes import letter
     from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_LEFT, TA_RIGHT
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
     from reportlab.lib.units import inch
+    from reportlab.pdfgen import canvas
+    from datetime import datetime
 except ImportError:
     print("ERROR: ReportLab is not installed. Please run: pip install reportlab")
     sys.exit(1)
@@ -42,6 +45,42 @@ def fmt_usd(val):
 def fmt_percent(val):
     num = parse_percent(val)
     return format_percent(num) if num is not None else "[Not provided]"
+
+
+class NumberedCanvas(canvas.Canvas):
+    """Canvas that knows how to draw headers, footers, and page numbers."""
+
+    def __init__(self, *args, title: str = "", generated: str = "", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.title = title
+        self.generated = generated
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        num_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self.draw_header_footer(num_pages)
+            super().showPage()
+        super().save()
+
+    def draw_header_footer(self, page_count: int):
+        width, height = self._pagesize
+        self.setFont("Helvetica", 8)
+        # Header
+        self.drawString(72, height - 0.75 * inch, self.title)
+        self.drawRightString(width - 72, height - 0.75 * inch, self.generated)
+        # Footer
+        self.drawString(72, 0.75 * inch, "Magnus Client Intake Form — Confidential")
+        self.drawRightString(
+            width - 72,
+            0.75 * inch,
+            f"Page {self._pageNumber} of {page_count}",
+        )
 
 def save_draft_word(form_data, output_path):
     """Save form data as a Word document draft"""
@@ -208,217 +247,184 @@ def save_draft_word(form_data, output_path):
         return False
 
 def generate_pdf_report(form_data, output_path):
-    """Generate a PDF report from form data"""
+    """Generate a professional PDF report from form data."""
     try:
-        # Validate input data
         if not isinstance(form_data, dict):
             raise ValueError("Form data must be a dictionary")
-        
-        # Create the PDF document
+
+        generated_ts = datetime.now().strftime("%Y-%m-%d %H:%M")
         doc = SimpleDocTemplate(
             output_path,
             pagesize=letter,
             rightMargin=72,
             leftMargin=72,
             topMargin=72,
-            bottomMargin=72
+            bottomMargin=72,
         )
-        
-        # Define styles
+
         styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=16,
-            spaceAfter=30
-        )
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
+        section_heading_style = ParagraphStyle(
+            "SectionHeading",
+            parent=styles["Heading2"],
+            fontName="Helvetica-Bold",
             fontSize=14,
-            spaceAfter=12
+            spaceBefore=12,
+            spaceAfter=6,
+            backColor=colors.whitesmoke,
         )
-        normal_style = styles['Normal']
+        label_style = ParagraphStyle(
+            "FieldLabel",
+            fontName="Helvetica-Bold",
+            fontSize=10,
+            alignment=TA_LEFT,
+        )
+        value_style = ParagraphStyle(
+            "FieldValue",
+            fontName="Helvetica",
+            fontSize=10,
+            alignment=TA_LEFT,
+        )
+        value_currency_style = ParagraphStyle(
+            "CurrencyValue",
+            parent=value_style,
+            alignment=TA_RIGHT,
+        )
+        empty_value_style = ParagraphStyle(
+            "EmptyValue",
+            fontName="Helvetica-Oblique",
+            fontSize=10,
+            textColor=colors.grey,
+            alignment=TA_LEFT,
+        )
+        empty_currency_style = ParagraphStyle(
+            "EmptyCurrency",
+            parent=empty_value_style,
+            alignment=TA_RIGHT,
+        )
+        table_header_style = ParagraphStyle(
+            "TableHeader",
+            fontName="Helvetica-Bold",
+            fontSize=10,
+            alignment=TA_LEFT,
+        )
 
-        # Helper function to format monetary values
-        def format_money(value):
-            return fmt_usd(value)
+        def safe(v):
+            return "" if v is None else str(v)
 
-        # Helper function to format percentages
-        def format_percentage(value):
-            return fmt_percent(value)
+        def field_row(label, value, is_currency=False):
+            lbl = Paragraph(label, label_style)
+            if value in (None, "", "[Not provided]"):
+                val = Paragraph(
+                    "Not Provided",
+                    empty_currency_style if is_currency else empty_value_style,
+                )
+            else:
+                val_text = fmt_usd(value) if is_currency else safe(value)
+                val = Paragraph(
+                    val_text,
+                    value_currency_style if is_currency else value_style,
+                )
+            return [lbl, val]
 
-        def safe(s):
-            return "" if s is None else str(s)
+        def add_section(title, fields):
+            content.append(Paragraph(title, section_heading_style))
+            rows = [field_row(*f) for f in fields]
+            table = Table(rows, colWidths=[2.5 * inch, 3.5 * inch])
+            table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+            content.append(table)
+            content.append(Spacer(1, 12))
 
-        def format_pct(v):
-            try:
-                return f"{float(v):.2f}%"
-            except Exception:
-                return safe(v)
+        def add_table_section(title, headers, rows, col_widths=None):
+            content.append(Paragraph(title, section_heading_style))
+            table_data = [[Paragraph(h, table_header_style) for h in headers]]
+            if rows:
+                for row in rows:
+                    table_data.append([
+                        Paragraph(
+                            "Not Provided" if (c is None or c == "") else safe(c),
+                            empty_value_style if (c is None or c == "") else value_style,
+                        ) for c in row
+                    ])
+            else:
+                table_data.append([Paragraph("Not Provided", empty_value_style) for _ in headers])
+            table = Table(table_data, colWidths=col_widths, hAlign="LEFT")
+            table.setStyle(TableStyle([
+                ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
+                ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+                ("VALIGN", (0,0), (-1,-1), "TOP"),
+            ]))
+            content.append(table)
+            content.append(Spacer(1, 12))
 
-        # Normalize and derive fields from application state
-        investment_objective = form_data.get("investment_objective", "[Not provided]")
+        content = []
+        content.append(Paragraph("Magnus Client Intake Form", styles["Title"]))
+        content.append(Spacer(1, 12))
+
+        investment_objective = form_data.get("investment_objective")
+
+        add_section("Personal Information", [
+            ("Full Name", form_data.get("full_name")),
+            ("Date of Birth", form_data.get("dob")),
+            ("Social Security Number", form_data.get("ssn")),
+            ("Citizenship", form_data.get("citizenship_status")),
+            ("Marital Status", form_data.get("marital_status")),
+        ])
+
+        add_section("Contact Information", [
+            ("Residential Address", form_data.get("address")),
+            ("Email", form_data.get("email")),
+            ("Home Phone", form_data.get("phone_home")),
+            ("Mobile Phone", form_data.get("phone_mobile")),
+            ("Work Phone", form_data.get("phone_work")),
+        ])
+
+        add_section("Employment Information", [
+            ("Employment Status", form_data.get("employment_status")),
+            ("Employer Name", form_data.get("employer_name")),
+            ("Occupation/Title", form_data.get("job_title")),
+            ("Years Employed", form_data.get("years_with_employer")),
+            ("Annual Income", form_data.get("annual_income"), True),
+            ("Employer Address", form_data.get("employer_address")),
+        ])
+
+        add_section("Financial Information", [
+            ("Education Status", form_data.get("education_status")),
+            ("Estimated Tax Bracket", fmt_percent(form_data.get("est_tax_bracket"))),
+            ("Investment Risk Tolerance", form_data.get("risk_tolerance")),
+            ("Time Horizon", form_data.get("time_horizon")),
+            ("Investment Objective", investment_objective),
+            ("Estimated Net Worth", form_data.get("est_net_worth"), True),
+            ("Liquid Net Worth", form_data.get("est_liquid_net_worth"), True),
+            ("Assets Held Away – Total", form_data.get("assets_held_away_total"), True),
+            ("Assets Held Away – Liquid", form_data.get("assets_held_away_liquid"), True),
+            ("Assets Held Away – At Other Brokerage Firms", form_data.get("assets_held_away_other_brokers"), True),
+        ])
+
+        add_section("Spouse/Partner Information", [
+            ("Full Name", form_data.get("spouse_full_name")),
+            ("Date of Birth", form_data.get("spouse_dob")),
+            ("SSN", form_data.get("spouse_ssn")),
+            ("Employment Status", form_data.get("spouse_employment_status")),
+            ("Employer Name", form_data.get("spouse_employer_name")),
+            ("Occupation/Title", form_data.get("spouse_job_title")),
+            ("Phone", form_data.get("spouse_phone")),
+        ])
 
         dependents = form_data.get("dependents") or []
-        if not dependents and any(
-            form_data.get(k) for k in ("dep_full_name", "dep_dob", "dep_relationship")
-        ):
-            dependents = [
-                {
-                    "name": form_data.get("dep_full_name"),
-                    "dob": form_data.get("dep_dob"),
-                    "relationship": form_data.get("dep_relationship"),
-                }
-            ]
+        dep_rows = [[d.get("full_name"), d.get("dob"), d.get("relationship")] for d in dependents]
+        add_table_section("Dependents", ["Name", "DOB", "Relationship"], dep_rows)
 
         beneficiaries = form_data.get("beneficiaries") or []
-        if not beneficiaries and any(
-            form_data.get(k)
-            for k in ("ben_full_name", "ben_dob", "ben_relationship", "ben_allocation_pct")
-        ):
-            beneficiaries = [
-                {
-                    "name": form_data.get("ben_full_name"),
-                    "dob": form_data.get("ben_dob"),
-                    "relationship": form_data.get("ben_relationship"),
-                    "allocation": form_data.get("ben_allocation_pct"),
-                }
-            ]
+        ben_rows = [[b.get("full_name"), b.get("beneficiary_ssn"), fmt_percent(b.get("allocation"))] for b in beneficiaries]
+        add_table_section("Beneficiaries", ["Name", "SSN", "Allocation"], ben_rows)
 
-        # Trusted contact uses tcp_* keys in state
-        form_data.setdefault("trusted_full_name", form_data.get("tcp_full_name"))
-        form_data.setdefault("trusted_relationship", form_data.get("tcp_relationship"))
-        form_data.setdefault("trusted_phone", form_data.get("tcp_phone"))
-        form_data.setdefault("trusted_email", form_data.get("tcp_email"))
+        asset_types = ["Stocks", "Bonds", "Mutual Funds", "ETFs", "Options", "Futures", "Short-Term", "Other"]
+        asset_rows = []
+        for asset in asset_types:
+            key = f"asset_breakdown_{asset.lower().replace(' ', '_').replace('-', '_')}"
+            asset_rows.append([asset, fmt_percent(form_data.get(key))])
+        add_table_section("Asset Breakdown", ["Asset", "Percentage"], asset_rows)
 
-        # Start building the content
-        content = []
-
-        def render_section(title, rows):
-            content.append(Paragraph(title, heading_style))
-            if not rows:
-                content.append(Paragraph("No disclosures.", normal_style))
-            else:
-                for label, val in rows:
-                    content.append(Paragraph(f"{label}: {safe(val)}", normal_style))
-            content.append(Spacer(1, 12))
-        
-        # Title
-        content.append(Paragraph("Magnus Client Intake Form", title_style))
-        content.append(Spacer(1, 12))
-        
-        # Personal Information
-        content.append(Paragraph("Personal Information", heading_style))
-        content.append(Paragraph(f"Full Name: {form_data.get('full_name', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Date of Birth: {form_data.get('dob', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Social Security Number: {form_data.get('ssn', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Citizenship: {form_data.get('citizenship_status', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Marital Status: {form_data.get('marital_status', '[Not provided]')}", normal_style))
-        content.append(Spacer(1, 12))
-        
-        # Contact Information
-        content.append(Paragraph("Contact Information", heading_style))
-        content.append(Paragraph(f"Residential Address: {form_data.get('address', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Email: {form_data.get('email', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Home Phone: {form_data.get('phone_home', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Mobile Phone: {form_data.get('phone_mobile', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Work Phone: {form_data.get('phone_work', '[Not provided]')}", normal_style))
-        content.append(Spacer(1, 12))
-        
-        # Employment Information
-        content.append(Paragraph("Employment Information", heading_style))
-        content.append(Paragraph(f"Employment Status: {form_data.get('employment_status', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Employer Name: {form_data.get('employer_name', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Occupation: {form_data.get('job_title', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Years Employed: {form_data.get('years_with_employer', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Annual Income: {format_money(form_data.get('annual_income'))}", normal_style))
-        content.append(Spacer(1, 12))
-
-        # Financial Information
-        content.append(Paragraph("Financial Information", heading_style))
-        content.append(Paragraph(f"Education Status: {form_data.get('education_status', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Estimated Tax Bracket: {format_percentage(form_data.get('est_tax_bracket'))}", normal_style))
-        content.append(Paragraph(f"Investment Risk Tolerance: {form_data.get('risk_tolerance', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Time Horizon: {form_data.get('time_horizon', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Investment Objective: {investment_objective}", normal_style))
-        content.append(Paragraph(f"Net Worth: {format_money(form_data.get('est_net_worth'))}", normal_style))
-        content.append(Paragraph(f"Liquid Net Worth: {format_money(form_data.get('est_liquid_net_worth'))}", normal_style))
-        content.append(Paragraph(f"Assets Held Away – Total: {format_money(form_data.get('assets_held_away_total'))}", normal_style))
-        content.append(Paragraph(f"Assets Held Away – Liquid: {format_money(form_data.get('assets_held_away_liquid'))}", normal_style))
-        content.append(Paragraph(f"Assets Held Away – At Other Brokerage Firms: {format_money(form_data.get('assets_held_away_other_brokers'))}", normal_style))
-        content.append(Spacer(1, 12))
-
-        # Spouse Information
-        if not form_data.get('no_spouse'):
-            content.append(Paragraph("Spouse Information", heading_style))
-            content.append(Paragraph(f"Full Name: {form_data.get('spouse_full_name', '[Not provided]')}", normal_style))
-            content.append(Paragraph(f"Date of Birth: {form_data.get('spouse_dob', '[Not provided]')}", normal_style))
-            content.append(Paragraph(f"Social Security Number: {form_data.get('spouse_ssn', '[Not provided]')}", normal_style))
-            content.append(Paragraph(f"Employment Status: {form_data.get('spouse_employment_status', '[Not provided]')}", normal_style))
-            content.append(Paragraph(f"Employer Name: {form_data.get('spouse_employer_name', '[Not provided]')}", normal_style))
-            content.append(Paragraph(f"Occupation: {form_data.get('spouse_job_title', '[Not provided]')}", normal_style))
-            content.append(Paragraph(f"Phone Number: {form_data.get('spouse_phone', '[Not provided]')}", normal_style))
-            content.append(Spacer(1, 12))
-
-        # Dependents
-        content.append(Paragraph("Dependents", heading_style))
-        if dependents:
-            table_data = [["Name", "Date of Birth", "Relationship"]]
-            for dep in dependents:
-                table_data.append([
-                    dep.get('full_name', 'Not provided') or 'Not provided',
-                    dep.get('dob', 'Not provided') or 'Not provided',
-                    dep.get('relationship', 'Not provided') or 'Not provided',
-                ])
-            table = Table(table_data, hAlign='LEFT')
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ]))
-            content.append(table)
-        else:
-            content.append(Paragraph("[No dependents specified]", normal_style))
-        content.append(Spacer(1, 12))
-
-        # Beneficiaries
-        content.append(Paragraph("Beneficiaries", heading_style))
-        if beneficiaries:
-            table_data = [["Name", "Date of Birth", "Relationship", "SSN", "Allocation (%)"]]
-            for ben in beneficiaries:
-                table_data.append([
-                    ben.get('full_name', 'Not provided') or 'Not provided',
-                    ben.get('dob', 'Not provided') or 'Not provided',
-                    ben.get('relationship', 'Not provided') or 'Not provided',
-                    ben.get('beneficiary_ssn', 'Not provided') or 'Not provided',
-                    format_percentage(ben.get('allocation')),
-                ])
-            table = Table(table_data, hAlign='LEFT')
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ]))
-            content.append(table)
-        else:
-            content.append(Paragraph("[No beneficiaries specified]", normal_style))
-        content.append(Spacer(1, 12))
-
-        # Asset Breakdown
-        content.append(Paragraph("Asset Breakdown", heading_style))
-        asset_types = [
-            "Stocks", "Bonds", "Mutual Funds", "ETFs", "UITs", 
-            "Annuities (Fixed)", "Annuities (Variable)", "Options", 
-            "Commodities", "Alternative Investments", "Limited Partnerships", 
-            "Variable Contracts", "Short-Term", "Other"
-        ]
-        for asset_type in asset_types:
-            field_name = f"asset_breakdown_{asset_type.lower().replace(' ', '_').replace('(', '').replace(')', '')}"
-            value = form_data.get(field_name)
-            content.append(Paragraph(f"{asset_type}: {format_percentage(value)}", normal_style))
-        content.append(Spacer(1, 12))
-
-        # Investment Experience
-        content.append(Paragraph("Investment Experience", heading_style))
         asset_map = [
             ("Stocks", "stocks"),
             ("Bonds", "bonds"),
@@ -432,169 +438,78 @@ def generate_pdf_report(form_data, output_path):
             ("Limited Partnerships", "limited_partnerships"),
             ("Variable Contracts", "variable_contracts"),
         ]
-        for label, key in asset_map:
-            year = form_data.get(f"{key}_year_started") or "[Not provided]"
-            level = form_data.get(f"{key}_level") or "[Not provided]"
-            content.append(
-                Paragraph(
-                    f"{label} – Year Started: {year}, Level: {level}", normal_style
-                )
-            )
-        content.append(Spacer(1, 12))
+        inv_rows = [[label, form_data.get(f"{key}_year_started"), form_data.get(f"{key}_level")] for label, key in asset_map]
+        add_table_section("Investment Experience", ["Investment", "Year Started", "Level"], inv_rows)
 
-        # Broker-Dealer Relationships
-        bd_primary = [
-            form_data.get("employee_this_bd", "No"),
-            form_data.get("related_this_bd", "No"),
-            form_data.get("employee_other_bd", "No"),
-            form_data.get("related_other_bd", "No"),
-        ]
-        bd_rows = []
-        if form_data.get("employee_this_bd") == "Yes":
-            bd_rows.extend([
-                ("Employee Name", form_data.get("employee_name")),
-                ("Department", form_data.get("department")),
-                ("Branch", form_data.get("branch")),
-                ("Start Date", form_data.get("start_date")),
-            ])
-        if form_data.get("related_this_bd") == "Yes":
-            bd_rows.extend([
-                ("Related Employee Name", form_data.get("related_employee_name")),
-                ("Relationship", form_data.get("relationship")),
-                ("Branch", form_data.get("branch_related")),
-            ])
-        if form_data.get("employee_other_bd") == "Yes":
-            bd_rows.extend([
-                ("Firm Name", form_data.get("firm_name_other")),
-                ("CRD", form_data.get("crd_other")),
-                ("Role", form_data.get("role_other")),
-                ("Start Date", form_data.get("start_date_other")),
-            ])
-        if form_data.get("related_other_bd") == "Yes":
-            bd_rows.extend([
-                ("Firm Name", form_data.get("firm_name_rel")),
-                ("Employee Name", form_data.get("employee_name_rel")),
-                ("Relationship", form_data.get("relationship_rel")),
-            ])
-        render_section(
-            "Broker-Dealer Relationships",
-            bd_rows if "Yes" in bd_primary else None,
+        add_section("Broker-Dealer Relationships", [
+            ("Employed by This Broker-Dealer", form_data.get("employee_this_bd")),
+            ("Related to Employee of This Broker-Dealer", form_data.get("related_this_bd")),
+            ("Employed by Other Broker-Dealer", form_data.get("employee_other_bd")),
+            ("Related to Employee of Other Broker-Dealer", form_data.get("related_other_bd")),
+        ])
+
+        add_section("Regulatory Affiliations", [
+            ("Membership Type", form_data.get("membership_type")),
+            ("CRD/Member ID", form_data.get("sro_crd")),
+            ("Branch", form_data.get("sro_branch")),
+            ("Company", form_data.get("company_name")),
+            ("Ticker", form_data.get("ticker")),
+            ("Exchange", form_data.get("exchange")),
+            ("Role/Capacity", form_data.get("role")),
+            ("Ownership %", fmt_percent(form_data.get("ownership_pct"))),
+            ("As Of", form_data.get("as_of")),
+        ])
+
+        add_section("Foreign Financial Accounts", [
+            ("Institution", form_data.get("institution_name")),
+            ("Country", form_data.get("country")),
+            ("Purpose", form_data.get("purpose")),
+            ("Source of Funds", form_data.get("source_of_funds")),
+            ("Open Date", form_data.get("open_date")),
+            ("Private Banking Account", form_data.get("private_banking")),
+            ("Foreign Bank Account", form_data.get("foreign_bank_acct")),
+        ])
+
+        add_section("Politically Exposed Person (PEP)", [
+            ("Name", form_data.get("pep_name")),
+            ("Country", form_data.get("pep_country")),
+            ("Relationship", form_data.get("pep_relationship")),
+            ("Title", form_data.get("pep_title")),
+            ("Start Date", form_data.get("pep_start")),
+            ("End Date", form_data.get("pep_end")),
+            ("Screening Consent", form_data.get("pep_screening_consent")),
+        ])
+
+        add_section("Outside Broker Information", [
+            ("Broker Firm Name", form_data.get("outside_firm_name")),
+            ("Account Type", form_data.get("outside_broker_account_type")),
+            ("Account Number", form_data.get("outside_broker_account_number")),
+            ("Liquid Amount", form_data.get("outside_liquid_amount"), True),
+        ])
+
+        add_section("Trusted Contact Information", [
+            ("Full Name", form_data.get("trusted_full_name")),
+            ("Relationship", form_data.get("trusted_relationship")),
+            ("Phone Number", form_data.get("trusted_phone")),
+            ("Email Address", form_data.get("trusted_email")),
+        ])
+
+        add_section("Regulatory Consent", [
+            ("Electronic Delivery Consent", form_data.get("ed_consent", "No")),
+        ])
+
+        doc.build(
+            content,
+            canvasmaker=lambda *args, **kw: NumberedCanvas(
+                *args, title="Magnus Client Intake Form", generated=generated_ts, **kw
+            ),
         )
-
-        # Regulatory Affiliations
-        reg_primary = [
-            form_data.get("sro_member", "No"),
-            form_data.get("control_person", "No"),
-        ]
-        reg_rows = []
-        if form_data.get("sro_member") == "Yes":
-            reg_rows.extend([
-                ("Membership Type", form_data.get("membership_type")),
-                ("CRD/Member ID", form_data.get("sro_crd")),
-                ("Branch", form_data.get("sro_branch")),
-            ])
-        if form_data.get("control_person") == "Yes":
-            reg_rows.extend([
-                ("Company", form_data.get("company_name")),
-                ("Ticker", form_data.get("ticker")),
-                ("Exchange", form_data.get("exchange")),
-                ("Role/Capacity", form_data.get("role")),
-                ("Ownership %", format_pct(form_data.get("ownership_pct"))),
-                ("As Of", form_data.get("as_of")),
-            ])
-        render_section(
-            "Regulatory Affiliations",
-            reg_rows if "Yes" in reg_primary else None,
-        )
-
-        # Foreign Financial Accounts
-        foreign_primary = [form_data.get("has_ffi", "No")]
-        foreign_rows = []
-        if form_data.get("has_ffi") == "Yes":
-            foreign_rows.extend([
-                ("Institution", form_data.get("institution_name")),
-                ("Country", form_data.get("country")),
-                ("Purpose", form_data.get("purpose")),
-                ("Source of Funds", form_data.get("source_of_funds")),
-                ("Open Date", form_data.get("open_date")),
-                (
-                    "Private Banking Account",
-                    "Yes" if form_data.get("private_banking") in (True, "Yes") else "No",
-                ),
-                (
-                    "Foreign Bank Account",
-                    "Yes" if form_data.get("foreign_bank_acct") in (True, "Yes") else "No",
-                ),
-            ])
-        render_section(
-            "Foreign Financial Accounts",
-            foreign_rows if "Yes" in foreign_primary else None,
-        )
-
-        # Politically Exposed Person (PEP)
-        pep_primary = [form_data.get("is_pep", "No")]
-        pep_rows = []
-        if form_data.get("is_pep") == "Yes":
-            pep_rows.extend([
-                ("Name", form_data.get("pep_name")),
-                ("Country", form_data.get("pep_country")),
-                ("Relationship", form_data.get("pep_relationship")),
-                ("Title", form_data.get("pep_title")),
-                ("Start Date", form_data.get("pep_start")),
-                ("End Date", form_data.get("pep_end")),
-                (
-                    "Screening Consent",
-                    "Yes" if form_data.get("pep_screening_consent") in (True, "Yes") else "No",
-                ),
-            ])
-        render_section(
-            "Politically Exposed Person (PEP)",
-            pep_rows if "Yes" in pep_primary else None,
-        )
-
-        # Outside Broker Information
-        if form_data.get('outside_broker_assets'):
-            content.append(Paragraph("Outside Broker Information", heading_style))
-            content.append(Paragraph(f"Broker Firm Name: {form_data.get('outside_firm_name', '[Not provided]')}", normal_style))
-            content.append(Paragraph(f"Account Type: {form_data.get('outside_broker_account_type', '[Not provided]')}", normal_style))
-            content.append(Paragraph(f"Account Number: {form_data.get('outside_broker_account_number', '[Not provided]')}", normal_style))
-            content.append(Paragraph(f"Liquid Amount: {format_money(form_data.get('outside_liquid_amount'))}", normal_style))
-            content.append(Spacer(1, 12))
-
-        # Trusted Contact Information
-        content.append(Paragraph("Trusted Contact Information", heading_style))
-        content.append(Paragraph(f"Full Name: {form_data.get('trusted_full_name', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Relationship: {form_data.get('trusted_relationship', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Phone Number: {form_data.get('trusted_phone', '[Not provided]')}", normal_style))
-        content.append(Paragraph(f"Email Address: {form_data.get('trusted_email', '[Not provided]')}", normal_style))
-        content.append(Spacer(1, 12))
-
-        # Regulatory Consent
-        content.append(Paragraph("Regulatory Consent", heading_style))
-        electronic_consent = form_data.get('ed_consent', 'No') or 'No'
-        content.append(Paragraph(f"Electronic Delivery Consent: {electronic_consent}", normal_style))
-        
-        # Add page numbers
-        def add_page_number(canvas, doc):
-            canvas.saveState()
-            canvas.setFont('Helvetica', 8)
-            page_number_text = f"Page {doc.page}"
-            canvas.drawCentredString(
-                doc.pagesize[0] / 2,
-                0.75 * inch,
-                page_number_text
-            )
-            canvas.restoreState()
-        
-        # Build the PDF with page numbers
-        doc.build(content, onFirstPage=add_page_number, onLaterPages=add_page_number)
         return True
-    
+
     except Exception as e:
         print(f"Error generating PDF: {str(e)}")
         traceback.print_exc()
         return False
-
 # Alias for backward compatibility with main_enhanced.py
 generate_pdf_from_data = generate_pdf_report
 
