@@ -1,10 +1,43 @@
 import os
 import sys
+import traceback
+import datetime
 from pathlib import Path
+from PyQt6.QtCore import qInstallMessageHandler, QtMsgType
 from PyQt6.QtGui import QPalette, QColor
-from PyQt6.QtWidgets import QApplication, QStyleFactory
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QStyleFactory, QMessageBox
 from .main_window import MagnusClientIntakeForm
+
+
+LOG_PATH = os.path.join(os.path.dirname(__file__), "..", "crash.log")
+
+
+def _log(msg: str) -> None:
+    """Append *msg* to the crash log, ignoring any errors."""
+    try:
+        with open(LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.datetime.now().isoformat()}] {msg}\n")
+    except Exception:
+        pass
+
+
+def excepthook(exc_type, exc, tb):  # type: ignore[override]
+    _log("UNCAUGHT EXCEPTION:\n" + "".join(traceback.format_exception(exc_type, exc, tb)))
+    QMessageBox.critical(
+        None,
+        "Unexpected error",
+        "The app hit an unexpected error and will close.\n\nSee crash.log for details.",
+    )
+    sys.__excepthook__(exc_type, exc, tb)
+    sys.exit(1)
+
+
+def qt_handler(mode: QtMsgType, context, message: str) -> None:  # type: ignore[override]
+    _log(f"QT[{int(mode)}] {message}")
+
+
+sys.excepthook = excepthook
+qInstallMessageHandler(qt_handler)
 
 
 def _load_qss(app: QApplication) -> None:

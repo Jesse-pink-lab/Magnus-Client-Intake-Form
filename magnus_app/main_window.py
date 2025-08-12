@@ -46,6 +46,8 @@ class MagnusClientIntakeForm(QMainWindow):
         self.session_active: bool = False
         self.is_dirty: bool = False
         self.last_invalid_fields: List[str] = []
+        self.is_tearing_down: bool = False
+        self.is_navigating: bool = False
         self.init_ui()
         self.init_menu()
         self.init_autosave()
@@ -95,50 +97,63 @@ class MagnusClientIntakeForm(QMainWindow):
 
     # ---------------------------------------------------------- NAVIGATION --
     def on_next(self) -> None:
-        # Run validation to update field highlighting but always allow navigation
-        valid = self.validate_current_page(self.current_page)
-        if not valid:
-            fields = "\n".join(f"• {name}" for name in self.last_invalid_fields)
-            if fields:
-                msg = (
-                    "The following fields are missing or invalid:\n\n"
-                    f"{fields}\n\n"
-                    "You may continue, but please review before submitting."
-                )
-            else:
-                msg = (
-                    "Some fields on this page are missing or invalid.\n"
-                    "You may continue, but please review before submitting."
-                )
-            QMessageBox.warning(self, "Incomplete Information", msg)
+        if self.is_tearing_down:
+            return
+        self.is_navigating = True
+        try:
+            # Run validation to update field highlighting but always allow navigation
+            valid = self.validate_current_page(self.current_page)
+            if not valid:
+                fields = "\n".join(f"• {name}" for name in self.last_invalid_fields)
+                if fields:
+                    msg = (
+                        "The following fields are missing or invalid:\n\n"
+                        f"{fields}\n\n"
+                        "You may continue, but please review before submitting."
+                    )
+                else:
+                    msg = (
+                        "Some fields on this page are missing or invalid.\n"
+                        "You may continue, but please review before submitting."
+                    )
+                QMessageBox.warning(self, "Incomplete Information", msg)
 
-        # still inside form pages
-        if self.current_page < len(self.pages):
-            self.state.update(self.get_current_values(self.current_page))
-            save_state(STATE_FILE, self.state)
-            self.current_page += 1
-            self.stack.setCurrentIndex(self.current_page)
-            if self.current_page == len(self.pages):  # just entered Review
-                self._refresh_review()
-            self.update_progress()
             if self.current_page < len(self.pages):
-                self.update_groups(self.current_page)
-                self.validate_current_page(self.current_page)
-        else:
-            # On Review page: buttons handle actions
-            pass
-
-    def on_back(self) -> None:
-        if self.current_page > 0:
-            if self.current_page <= len(self.pages) - 1:
                 self.state.update(self.get_current_values(self.current_page))
                 save_state(STATE_FILE, self.state)
-            self.current_page -= 1
-            self.stack.setCurrentIndex(self.current_page)
-            self.update_progress()
-            if self.current_page < len(self.pages):
-                self.update_groups(self.current_page)
-                self.validate_current_page(self.current_page)
+                self.current_page += 1
+                self.stack.setCurrentIndex(self.current_page)
+                if self.current_page == len(self.pages):  # just entered Review
+                    self._refresh_review()
+                self.update_progress()
+                if self.current_page < len(self.pages):
+                    self.update_groups(self.current_page)
+                    self.validate_current_page(self.current_page)
+            else:
+                # On Review page: finishing closes the window
+                if hasattr(self, "autosave_timer"):
+                    self.autosave_timer.stop()
+                self.close()
+        finally:
+            self.is_navigating = False
+
+    def on_back(self) -> None:
+        if self.is_tearing_down:
+            return
+        self.is_navigating = True
+        try:
+            if self.current_page > 0:
+                if self.current_page <= len(self.pages) - 1:
+                    self.state.update(self.get_current_values(self.current_page))
+                    save_state(STATE_FILE, self.state)
+                self.current_page -= 1
+                self.stack.setCurrentIndex(self.current_page)
+                self.update_progress()
+                if self.current_page < len(self.pages):
+                    self.update_groups(self.current_page)
+                    self.validate_current_page(self.current_page)
+        finally:
+            self.is_navigating = False
 
     def _build_review_page(self) -> QWidget:
         page = QWidget()
@@ -373,16 +388,20 @@ class MagnusClientIntakeForm(QMainWindow):
         if pdfgen is None or not hasattr(pdfgen, "generate"):
             QMessageBox.warning(self, "PDF", "PDF generator module not available.")
             return
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Save PDF", "Magnus_Client_Intake_Form.pdf", "PDF Files (*.pdf)"
-        )
-        if not path:
-            return
-        try:
-            pdfgen.generate(self.state, path)
-            QMessageBox.information(self, "PDF", f"PDF generated successfully:\n{path}")
-        except Exception as e:
-            QMessageBox.critical(self, "PDF Error", f"Failed to generate PDF:\n{e}")
+        dlg = QFileDialog(self, "Save PDF Report")
+        dlg.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dlg.setNameFilter("PDF Files (*.pdf)")
+        dlg.setDefaultSuffix("pdf")
+        if dlg.exec():
+            paths = dlg.selectedFiles()
+            if paths:
+                path = paths[0]
+                try:
+                    pdfgen.generate(self.state, path)
+                    QMessageBox.information(self, "PDF", f"PDF generated successfully:\n{path}")
+                except Exception as e:
+                    QMessageBox.critical(self, "PDF Error", f"Failed to generate PDF:\n{e}")
 
     def update_progress(self) -> None:
         total = len(self.pages) + 1  # +1 for Review page
@@ -487,19 +506,36 @@ class MagnusClientIntakeForm(QMainWindow):
                     if validator:
                         ok = True
                         try:
-                            ok = validator(value, merged)
-                        except TypeError:
-                            ok = validator(value)
+                            try:
+                                ok = validator(value, merged)
+                            except TypeError:
+                                ok = validator(value)
+                        except Exception as e:
+                            from .app import _log
+                            _log(f"Validator error {field.get('name')}: {e}")
+                            ok = False
                         if not ok:
                             valid = False
                             invalid_fields.append(label)
 
         if {"est_net_worth", "est_liquid_net_worth"}.issubset(inputs.keys()):
-            if not VALIDATORS["liquid_lte_net"]("", merged):
+            try:
+                if not VALIDATORS["liquid_lte_net"]("", merged):
+                    valid = False
+                    invalid_fields.append("Liquid Net Worth vs Net Worth")
+            except Exception as e:
+                from .app import _log
+                _log(f"Validator error liquid_lte_net: {e}")
                 valid = False
                 invalid_fields.append("Liquid Net Worth vs Net Worth")
         if "beneficiaries" in inputs:
-            if not VALIDATORS["beneficiaries_sum_100"]("", merged):
+            try:
+                if not VALIDATORS["beneficiaries_sum_100"]("", merged):
+                    valid = False
+                    invalid_fields.append("Beneficiaries Allocation Total")
+            except Exception as e:
+                from .app import _log
+                _log(f"Validator error beneficiaries_sum_100: {e}")
                 valid = False
                 invalid_fields.append("Beneficiaries Allocation Total")
         obj_fields = {
@@ -510,7 +546,13 @@ class MagnusClientIntakeForm(QMainWindow):
             "rank_preservation",
         }
         if obj_fields.issubset(inputs.keys()):
-            if not VALIDATORS["objective_ranks_unique"]("", merged):
+            try:
+                if not VALIDATORS["objective_ranks_unique"]("", merged):
+                    valid = False
+                    invalid_fields.append("Investment Objective Rankings")
+            except Exception as e:
+                from .app import _log
+                _log(f"Validator error objective_ranks_unique: {e}")
                 valid = False
                 invalid_fields.append("Investment Objective Rankings")
         purpose_fields = [
@@ -530,6 +572,8 @@ class MagnusClientIntakeForm(QMainWindow):
 
     # ------------------------------------------------------------- SIGNAL --
     def handle_field_change(self) -> None:
+        if self.is_tearing_down or self.is_navigating:
+            return
         self.state.update(self.get_current_values(self.current_page))
         self.mark_dirty()
         self.update_groups(self.current_page)
@@ -570,7 +614,16 @@ class MagnusClientIntakeForm(QMainWindow):
     def init_autosave(self) -> None:
         self.autosave_timer = QTimer(self)
         self.autosave_timer.setInterval(60000)
-        self.autosave_timer.timeout.connect(lambda: self.save_draft(auto=True))
+        self.autosave_timer.timeout.connect(self.autosave_tick)
+
+    def autosave_tick(self) -> None:
+        if self.is_tearing_down or not self.session_active or not self.current_path:
+            return
+        try:
+            save_state(self.current_path, self.state)
+        except Exception as e:
+            from .app import _log
+            _log(f"AUTOSAVE ERROR: {e}")
 
     # ------------------------------------------------------------ DRAFTS --
     def _default_drafts_dir(self) -> str:
@@ -584,64 +637,67 @@ class MagnusClientIntakeForm(QMainWindow):
         os.makedirs(path, exist_ok=True)
         return path
 
-    def _write_json_atomic(self, path: str, data: Dict[str, Any]) -> None:
-        tmp = f"{path}.tmp"
-        directory = os.path.dirname(path)
-        if directory:
-            os.makedirs(directory, exist_ok=True)
-        with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, indent=2)
-        os.replace(tmp, path)
+    def do_save(self, path: str) -> bool:
+        if not path:
+            return False
+        try:
+            save_state(path, self.state)
+            self.current_path = path
+            self.is_dirty = False
+            touch_mru(path)
+            return True
+        except Exception as e:
+            QMessageBox.critical(self, "Save failed", f"Could not save file:\n{e}")
+            return False
 
     def save_draft(self, auto: bool = False) -> None:
-        if self.current_path is None:
-            if auto:
-                return
-            self.save_draft_as()
-            return
         self.state.update(self.get_current_values(self.current_page))
-        try:
-            self._write_json_atomic(self.current_path, self.state)
-            self.is_dirty = False
-            touch_mru(self.current_path)
-            if not auto:
+        if auto:
+            if self.current_path:
+                self.do_save(self.current_path)
+            return
+        if self.current_path:
+            if self.do_save(self.current_path):
                 QMessageBox.information(
                     self, "Save Draft", f"Draft saved:\n{self.current_path}"
                 )
-        except Exception as e:
-            if not auto:
-                QMessageBox.critical(self, "Save Draft", f"Failed to save draft:\n{e}")
+        else:
+            self.save_draft_as()
 
     def save_draft_as(self) -> None:
         dir_ = self._default_drafts_dir()
-        default = os.path.join(dir_, "draft.mgd")
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Draft As",
-            default,
-            "Magnus Draft (*.mgd);;JSON (*.json)",
-        )
-        if not path:
-            return
-        if not os.path.splitext(path)[1]:
-            path += ".mgd"
-        self.current_path = path
-        self.save_draft()
+        dlg = QFileDialog(self, "Save Draft")
+        dlg.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dlg.setNameFilters(["Magnus Draft (*.mgd)", "JSON (*.json)"])
+        dlg.setDirectory(dir_)
+        dlg.setDefaultSuffix("mgd")
+        if dlg.exec():
+            paths = dlg.selectedFiles()
+            if paths:
+                path = paths[0]
+                self.state.update(self.get_current_values(self.current_page))
+                if self.do_save(path):
+                    QMessageBox.information(self, "Save Draft", f"Draft saved:\n{path}")
 
     def open_draft(self) -> None:
         if self.session_active and not self.maybe_discard():
             return
         dir_ = self._default_drafts_dir()
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Open Draft", dir_, "Draft Files (*.mgd *.json)"
-        )
-        if not path:
-            return
-        self.open_draft_path(path)
+        dlg = QFileDialog(self, "Open Draft")
+        dlg.setFileMode(QFileDialog.FileMode.ExistingFile)
+        dlg.setNameFilters(["Draft Files (*.mgd *.json)"])
+        dlg.setDirectory(dir_)
+        dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        if dlg.exec():
+            paths = dlg.selectedFiles()
+            if paths:
+                self.open_draft_path(paths[0])
 
     def new_draft(self) -> None:
         if self.session_active and not self.maybe_discard():
             return
+        self.autosave_timer.stop()
         self.state = build_default_state()
         self.current_path = None
         self.rebuild_pages()
@@ -649,26 +705,30 @@ class MagnusClientIntakeForm(QMainWindow):
         self.show_wizard()
 
     def rebuild_pages(self) -> None:
-        while self.stack.count():
-            w = self.stack.widget(0)
-            self.stack.removeWidget(w)
-            w.deleteLater()
-        self.pages = []
-        self.renderer = PageRenderer(self.state, VALIDATORS)
-        for index, page_spec in enumerate(PAGES):
-            page_widget, meta = self.renderer.render_page_from_spec(
-                page_spec, index, self.handle_field_change, self.on_next, self.on_back, self.go_home
-            )
-            self.stack.addWidget(page_widget)
-            self.pages.append(meta)
-        review = self._build_review_page()
-        self.stack.addWidget(review)
-        self.current_page = 0
-        self.stack.setCurrentIndex(0)
-        self.update_progress()
-        if self.pages:
-            self.update_groups(0)
-            self.validate_current_page(0)
+        self.is_tearing_down = True
+        try:
+            while self.stack.count():
+                w = self.stack.widget(0)
+                self.stack.removeWidget(w)
+                w.deleteLater()
+            self.pages.clear()
+            self.renderer = PageRenderer(self.state, VALIDATORS)
+            for index, page_spec in enumerate(PAGES):
+                page_widget, meta = self.renderer.render_page_from_spec(
+                    page_spec, index, self.handle_field_change, self.on_next, self.on_back, self.go_home
+                )
+                self.stack.addWidget(page_widget)
+                self.pages.append(meta)
+            review = self._build_review_page()
+            self.stack.addWidget(review)
+            self.current_page = 0
+            self.stack.setCurrentIndex(0)
+            self.update_progress()
+            if self.pages:
+                self.update_groups(0)
+                self.validate_current_page(0)
+        finally:
+            self.is_tearing_down = False
 
     # -------------------------------------------------------------- HOME/WIZARD --
     def show_home(self) -> None:
@@ -681,13 +741,27 @@ class MagnusClientIntakeForm(QMainWindow):
     def go_home(self) -> None:
         if not self.maybe_discard():
             return
+        self.autosave_timer.stop()
         self.end_session()
         self.show_home()
 
     def open_draft_path(self, path: str) -> None:
+        self.autosave_timer.stop()
+        if not path:
+            return
         try:
             with open(path, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
+            for page in PAGES:
+                for section in page.get("sections", []):
+                    for field in section.get("fields", []):
+                        if field.get("type") == "repeating_group":
+                            name = field.get("name")
+                            val = data.get(name)
+                            if isinstance(val, list):
+                                data[name] = [v for v in val if isinstance(v, dict)]
+                            else:
+                                data[name] = []
             self.state = migrate_state(data)
             self.current_path = path
             self.rebuild_pages()

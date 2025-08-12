@@ -223,12 +223,22 @@ class PageRenderer:
                         if vname == "usd_currency_0_1b":
                             num = parse_usd(text)
                             if num is not None:
-                                w.setText(format_usd(num))
+                                try:
+                                    w.blockSignals(True)
+                                    w.setText(format_usd(num))
+                                finally:
+                                    w.blockSignals(False)
+                                on_change()
                             ok = num is not None
                         elif vname == "percent_0_100":
                             num = parse_percent(text)
                             if num is not None:
-                                w.setText(format_percent(num))
+                                try:
+                                    w.blockSignals(True)
+                                    w.setText(format_percent(num))
+                                finally:
+                                    w.blockSignals(False)
+                                on_change()
                             ok = num is not None
                         else:
                             validator = self.validators.get(vname)
@@ -271,12 +281,22 @@ class PageRenderer:
                         if vname == "usd_currency_0_1b":
                             num = parse_usd(text)
                             if num is not None:
-                                w.setText(format_usd(num))
+                                try:
+                                    w.blockSignals(True)
+                                    w.setText(format_usd(num))
+                                finally:
+                                    w.blockSignals(False)
+                                on_change()
                             ok = num is not None
                         elif vname == "percent_0_100":
                             num = parse_percent(text)
                             if num is not None:
-                                w.setText(format_percent(num))
+                                try:
+                                    w.blockSignals(True)
+                                    w.setText(format_percent(num))
+                                finally:
+                                    w.blockSignals(False)
+                                on_change()
                             ok = num is not None
                         else:
                             validator = self.validators.get(vname)
@@ -400,12 +420,22 @@ class PageRenderer:
                     if vname == "usd_currency_0_1b":
                         num = parse_usd(text)
                         if num is not None:
-                            w.setText(format_usd(num))
+                            try:
+                                w.blockSignals(True)
+                                w.setText(format_usd(num))
+                            finally:
+                                w.blockSignals(False)
+                            set_value(w.text())
                         ok = num is not None
                     elif vname == "percent_0_100":
                         num = parse_percent(text)
                         if num is not None:
-                            w.setText(format_percent(num))
+                            try:
+                                w.blockSignals(True)
+                                w.setText(format_percent(num))
+                            finally:
+                                w.blockSignals(False)
+                            set_value(w.text())
                         ok = num is not None
                     else:
                         validator = self.validators.get(vname)
@@ -448,12 +478,22 @@ class PageRenderer:
                     if vname == "usd_currency_0_1b":
                         num = parse_usd(text)
                         if num is not None:
-                            w.setText(format_usd(num))
+                            try:
+                                w.blockSignals(True)
+                                w.setText(format_usd(num))
+                            finally:
+                                w.blockSignals(False)
+                            set_value(w.text())
                         ok = num is not None
                     elif vname == "percent_0_100":
                         num = parse_percent(text)
                         if num is not None:
-                            w.setText(format_percent(num))
+                            try:
+                                w.blockSignals(True)
+                                w.setText(format_percent(num))
+                            finally:
+                                w.blockSignals(False)
+                            set_value(w.text())
                         ok = num is not None
                     else:
                         validator = self.validators.get(vname)

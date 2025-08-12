@@ -60,8 +60,19 @@ def load_state(path: str) -> Dict[str, Any]:
     return migrate_state(state)
 
 def save_state(path: str, state: Dict[str, Any]) -> None:
+    """Atomically persist *state* to *path*.
+
+    Writes to a temporary file and replaces the target on success. Any
+    exceptions are swallowed to avoid crashing the UI."""
+    if not path:
+        return
     try:
-        with open(path, "w", encoding="utf-8") as fh:
+        directory = os.path.dirname(path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        tmp = f"{path}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(state, fh, indent=2)
+        os.replace(tmp, path)
     except Exception:
         pass
