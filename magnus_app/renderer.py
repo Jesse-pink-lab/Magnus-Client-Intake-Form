@@ -334,6 +334,7 @@ class PageRenderer:
         on_change: Callable[[], None],
         on_next: Callable[[], None],
         on_back: Callable[[], None],
+        on_home: Callable[[], None],
     ) -> Tuple[QWidget, Dict[str, Any]]:
         page = QWidget()
         layout = QVBoxLayout(page)
@@ -360,6 +361,10 @@ class PageRenderer:
         content_layout.addItem(QSpacerItem(0, 0, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
 
         nav = QHBoxLayout()
+        home_btn = QPushButton("Home")
+        home_btn.clicked.connect(on_home)
+        nav.addWidget(home_btn)
+
         if index > 0:
             back_btn = QPushButton("Back")
             back_btn.clicked.connect(on_back)

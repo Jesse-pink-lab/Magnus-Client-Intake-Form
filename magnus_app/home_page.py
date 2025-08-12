@@ -23,6 +23,10 @@ class HomePage(QWidget):
         title.setObjectName("homeTitle")
         layout.addWidget(title)
 
+        header = QLabel("Home")
+        header.setObjectName("homeLabel")
+        layout.addWidget(header)
+
         btn_row = QHBoxLayout()
         new_btn = QPushButton("New Draft")
         open_btn = QPushButton("Open…")
