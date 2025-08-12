@@ -673,18 +673,18 @@ class FormValidator:
             return True  # Skip validation if not opted in
         
         # Required fields for trusted contact
-        if not self.validate_required_field("Trusted Contact Name", data.get("trusted_contact_name", "")):
+        if not self.validate_required_field("Trusted Contact Name", data.get("tc_full_name", "")):
             valid = False
-        
-        if not self.validate_required_field("Trusted Contact Relationship", data.get("trusted_contact_relationship", "")):
+
+        if not self.validate_required_field("Trusted Contact Relationship", data.get("tc_relationship", "")):
             valid = False
-        
+
         # Phone number validation
-        if not self.validate_phone("Trusted Contact Phone", data.get("trusted_contact_phone", "")):
+        if not self.validate_phone("Trusted Contact Phone", data.get("tc_phone", "")):
             valid = False
-        
+
         # Email validation (optional but if provided must be valid)
-        trusted_email = data.get("trusted_contact_email", "")
+        trusted_email = data.get("tc_email", "")
         if trusted_email and not self.validate_email("Trusted Contact Email", trusted_email):
             valid = False
         

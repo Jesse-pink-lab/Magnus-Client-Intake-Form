@@ -119,10 +119,10 @@ def save_draft_word(form_data, output_path):
         doc.add_heading('Employment Information', level=1)
         doc.add_paragraph(f"Employment Status: {form_data.get('employment_status', '[Not provided]')}")
         doc.add_paragraph(f"Employer Name: {form_data.get('employer_name', '[Not provided]')}")
+        doc.add_paragraph(f"Employer Address: {form_data.get('employer_address', '[Not provided]')}")
         doc.add_paragraph(f"Occupation/Title: {form_data.get('job_title', '[Not provided]')}")
         doc.add_paragraph(f"Years Employed: {form_data.get('years_with_employer', '[Not provided]')}")
         doc.add_paragraph(f"Annual Income: {fmt_usd(form_data.get('annual_income'))}")
-        doc.add_paragraph(f"Employer Address: {form_data.get('employer_address', '[Not provided]')}")
         
         # Retirement Information (if applicable)
         if form_data.get("employment_status") == "Retired":
@@ -222,10 +222,10 @@ def save_draft_word(form_data, output_path):
         
         # Trusted Contact Information
         doc.add_heading('Trusted Contact Information', level=1)
-        doc.add_paragraph(f"Full Name: {form_data.get('trusted_full_name', '[Not provided]')}")
-        doc.add_paragraph(f"Relationship: {form_data.get('trusted_relationship', '[Not provided]')}")
-        doc.add_paragraph(f"Phone Number: {form_data.get('trusted_phone', '[Not provided]')}")
-        doc.add_paragraph(f"Email Address: {form_data.get('trusted_email', '[Not provided]')}")
+        doc.add_paragraph(f"Full Name: {form_data.get('tc_full_name', '[Not provided]')}")
+        doc.add_paragraph(f"Relationship: {form_data.get('tc_relationship', '[Not provided]')}")
+        doc.add_paragraph(f"Phone Number: {form_data.get('tc_phone', '[Not provided]')}")
+        doc.add_paragraph(f"Email Address: {form_data.get('tc_email', '[Not provided]')}")
         doc.add_paragraph()
         
         # Regulatory Consent
@@ -305,7 +305,7 @@ def generate_pdf_report(form_data, output_path):
         )
 
         def safe(v):
-            return "" if v is None else str(v)
+            return "" if v is None else str(v).replace("\n", "<br/>")
 
         def field_row(label, value, is_currency=False):
             lbl = Paragraph(label, label_style)
@@ -377,10 +377,10 @@ def generate_pdf_report(form_data, output_path):
         add_section("Employment Information", [
             ("Employment Status", form_data.get("employment_status")),
             ("Employer Name", form_data.get("employer_name")),
+            ("Employer Address", form_data.get("employer_address")),
             ("Occupation/Title", form_data.get("job_title")),
             ("Years Employed", form_data.get("years_with_employer")),
             ("Annual Income", form_data.get("annual_income"), True),
-            ("Employer Address", form_data.get("employer_address")),
         ])
 
         add_section("Financial Information", [
@@ -490,10 +490,10 @@ def generate_pdf_report(form_data, output_path):
         ])
 
         add_section("Trusted Contact Information", [
-            ("Full Name", form_data.get("trusted_full_name")),
-            ("Relationship", form_data.get("trusted_relationship")),
-            ("Phone Number", form_data.get("trusted_phone")),
-            ("Email Address", form_data.get("trusted_email")),
+            ("Full Name", form_data.get("tc_full_name")),
+            ("Relationship", form_data.get("tc_relationship")),
+            ("Phone Number", form_data.get("tc_phone")),
+            ("Email Address", form_data.get("tc_email")),
         ])
 
         add_section("Regulatory Consent", [

@@ -133,6 +133,14 @@ PAGES: List[Dict[str, Any]] = [
                         'required': False,
                     },
                     {
+                        'type': 'textarea',
+                        'name': 'employer_address',
+                        'label': 'Employer Address',
+                        'placeholder': 'Street, City, State ZIP',
+                        'required': False,
+                        'max_len': 500,
+                    },
+                    {
                         'name': 'job_title',
                         'type': 'text',
                         'label': 'Occupation/Job Title',
@@ -620,21 +628,21 @@ PAGES: List[Dict[str, Any]] = [
                 'title': 'Trusted Contact Person',
                 'fields': [
                     {
-                        'name': 'tcp_full_name',
+                        'name': 'tc_full_name',
                         'type': 'text',
                         'label': 'Full Legal Name',
                         'required': False,
                         'validate': 'optional_person_name',
                     },
                     {
-                        'name': 'tcp_relationship',
+                        'name': 'tc_relationship',
                         'type': 'text',
                         'label': 'Relationship to You',
                         'required': False,
                         'validate': 'optional_person_name',
                     },
                     {
-                        'name': 'tcp_phone',
+                        'name': 'tc_phone',
                         'type': 'text',
                         'label': 'Phone Number',
                         'required': False,
@@ -642,7 +650,7 @@ PAGES: List[Dict[str, Any]] = [
                         'input_mask': 'phone',
                     },
                     {
-                        'name': 'tcp_email',
+                        'name': 'tc_email',
                         'type': 'text',
                         'label': 'Email Address',
                         'required': False,

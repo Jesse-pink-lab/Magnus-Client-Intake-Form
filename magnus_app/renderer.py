@@ -335,9 +335,26 @@ class PageRenderer:
 
             elif ftype == "textarea":
                 widget = QTextEdit()
+                widget.setPlaceholderText(field.get("placeholder", ""))
+                widget.setFixedHeight(80)
+                if "max_len" in field:
+                    def limit(w=widget, ml=int(field["max_len"])):
+                        txt = w.toPlainText()
+                        if len(txt) > ml:
+                            cursor = w.textCursor()
+                            pos = cursor.position()
+                            w.blockSignals(True)
+                            w.setPlainText(txt[:ml])
+                            cursor.setPosition(min(pos, ml))
+                            w.setTextCursor(cursor)
+                            w.blockSignals(False)
+                    widget.textChanged.connect(limit)
                 widget.setPlainText(self.state.get(name, ""))
-                widget.textChanged.connect(on_change)
-                widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+                def on_change_text(w=widget, n=name):
+                    self.state[n] = w.toPlainText().strip()
+                    on_change()
+                widget.textChanged.connect(on_change_text)
+                widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
             elif ftype == "checkbox":
                 widget = QCheckBox(label_text)
@@ -535,9 +552,23 @@ class PageRenderer:
 
         elif ftype == "textarea":
             widget = QTextEdit()
+            widget.setPlaceholderText(sub_spec.get("placeholder", ""))
+            widget.setFixedHeight(80)
+            if "max_len" in sub_spec:
+                def limit(w=widget, ml=int(sub_spec["max_len"])):
+                    txt = w.toPlainText()
+                    if len(txt) > ml:
+                        cursor = w.textCursor()
+                        pos = cursor.position()
+                        w.blockSignals(True)
+                        w.setPlainText(txt[:ml])
+                        cursor.setPosition(min(pos, ml))
+                        w.setTextCursor(cursor)
+                        w.blockSignals(False)
+                widget.textChanged.connect(limit)
             widget.setPlainText(data.get(sub_name, ""))
-            widget.textChanged.connect(lambda: set_value(widget.toPlainText()))
-            widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            widget.textChanged.connect(lambda: set_value(widget.toPlainText().strip()))
+            widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         elif ftype == "checkbox":
             widget = QCheckBox(label_text)
