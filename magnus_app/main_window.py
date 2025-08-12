@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional
 import json
 import os
 import sys
+import subprocess
 
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -19,6 +20,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction
+
+from .app import log_path, _log
 
 from .pages import PAGES
 from .state import STATE_FILE, load_state, save_state, build_default_state, migrate_state
@@ -581,34 +584,55 @@ class MagnusClientIntakeForm(QMainWindow):
 
     # --------------------------------------------------------------- MENU --
     def init_menu(self) -> None:
-        menu = self.menuBar().addMenu("File")
+        file_menu = self.menuBar().addMenu("File")
 
         new_act = QAction("New Draft", self)
         new_act.triggered.connect(self.new_draft)
-        menu.addAction(new_act)
+        file_menu.addAction(new_act)
 
         open_act = QAction("Open…", self)
         open_act.triggered.connect(self.open_draft)
-        menu.addAction(open_act)
+        file_menu.addAction(open_act)
 
         home_act = QAction("Home", self)
         home_act.setShortcut("Ctrl+H")
         home_act.triggered.connect(self.go_home)
-        menu.addAction(home_act)
+        file_menu.addAction(home_act)
 
         save_act = QAction("Save", self)
         save_act.triggered.connect(self.save_draft)
-        menu.addAction(save_act)
+        file_menu.addAction(save_act)
 
         save_as_act = QAction("Save As…", self)
         save_as_act.triggered.connect(self.save_draft_as)
-        menu.addAction(save_as_act)
+        file_menu.addAction(save_as_act)
 
-        menu.addSeparator()
+        file_menu.addSeparator()
 
         exit_act = QAction("Exit", self)
         exit_act.triggered.connect(self.close)
-        menu.addAction(exit_act)
+        file_menu.addAction(exit_act)
+
+        help_menu = self.menuBar().addMenu("&Help")
+        act_log = QAction("Open Crash Log Folder", self)
+
+        def _open_log_dir() -> None:
+            p = str(log_path().parent)
+            _log(f"[UI] Open log dir {p}")
+            try:
+                if sys.platform.startswith("win"):
+                    os.startfile(p)  # type: ignore
+                elif sys.platform == "darwin":
+                    subprocess.check_call(["open", p])
+                else:
+                    subprocess.check_call(["xdg-open", p])
+            except Exception as e:
+                QMessageBox.information(
+                    self, "Crash log", f"Crash logs live in:\n{p}\n\n{e}"
+                )
+
+        help_menu.addAction(act_log)
+        act_log.triggered.connect(_open_log_dir)
 
     # ----------------------------------------------------------- AUTOSAVE --
     def init_autosave(self) -> None:
@@ -622,7 +646,6 @@ class MagnusClientIntakeForm(QMainWindow):
         try:
             save_state(self.current_path, self.state)
         except Exception as e:
-            from .app import _log
             _log(f"AUTOSAVE ERROR: {e}")
 
     # ------------------------------------------------------------ DRAFTS --
