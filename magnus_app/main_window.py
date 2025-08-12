@@ -1,14 +1,17 @@
 from typing import Any, Dict, List
+import os, subprocess, sys
 
 from PyQt6.QtWidgets import (
     QHBoxLayout, QMainWindow, QProgressBar, QPushButton, QStackedWidget,
     QVBoxLayout, QWidget, QScrollArea, QTextEdit, QLabel, QFileDialog, QMessageBox
 )
+from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt
 from .pages import PAGES
 from .state import STATE_FILE, load_state, save_state
 from .renderer import PageRenderer
 from .validation import VALIDATORS
+from .app import log_path, _log
 # PDF generator (optional)
 try:
     from . import pdf_generator_reportlab as pdfgen
@@ -31,6 +34,26 @@ class MagnusClientIntakeForm(QMainWindow):
     def init_ui(self) -> None:
         self.setWindowTitle("Magnus Client Intake Form")
         self.resize(800, 600)
+        actLog = QAction("Open Crash Log Folder", self)
+
+        def _open_log_dir():
+            p = str(log_path().parent)
+            _log(f"[UI] Open log dir {p}")
+            try:
+                if sys.platform.startswith("win"):
+                    os.startfile(p)  # type: ignore
+                elif sys.platform == "darwin":
+                    subprocess.check_call(["open", p])
+                else:
+                    subprocess.check_call(["xdg-open", p])
+            except Exception as e:
+                QMessageBox.information(
+                    self, "Crash log", f"Crash logs live in:\n{p}\n\n{e}"
+                )
+
+        helpMenu = self.menuBar().addMenu("&Help")
+        helpMenu.addAction(actLog)
+        actLog.triggered.connect(_open_log_dir)
 
         central = QWidget()
         self.setCentralWidget(central)
