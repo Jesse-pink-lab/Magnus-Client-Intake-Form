@@ -28,7 +28,12 @@ from .app import log_path, _log
 from .pages import PAGES
 from .state import STATE_FILE, load_state, save_state, build_default_state, migrate_state
 from .renderer import PageRenderer
-from .validation import VALIDATORS
+from .validation import (
+    VALIDATORS,
+    assets_held_away_errors,
+    spouse_phone_errors,
+    beneficiaries_ssn_errors,
+)
 from .home_page import HomePage
 from .mru import get_mru, touch_mru, remove_from_mru
 
@@ -221,31 +226,11 @@ class MagnusClientIntakeForm(QMainWindow):
             if val is False:
                 return "No"
             return val if (val not in ("", None)) else default
-
-        def join_options(options):
-            selected = [label for key, label in options if self.state.get(key)]
-            return ", ".join(selected) if selected else "Not provided"
-
-        # Investment purpose checkboxes
-        purposes = join_options([
-            ("inv_purpose_income", "Income"),
-            ("inv_purpose_growth_income", "Growth and Income"),
-            ("inv_purpose_cap_app", "Capital Appreciation"),
-            ("inv_purpose_speculation", "Speculation"),
-        ])
-
-        # Investment objectives rankings
-        objectives_map = [
-            ("rank_trading_profits", "Trading Profits"),
-            ("rank_speculation", "Speculation"),
-            ("rank_capital_appreciation", "Capital Appreciation"),
-            ("rank_income", "Income"),
-            ("rank_preservation", "Preservation of Capital"),
-        ]
-        obj_lines = [
-            f"{label}: {get(key)}" for key, label in objectives_map if self.state.get(key)
-        ]
-        objectives = "<br/>".join(obj_lines) if obj_lines else "Not provided"
+        investment_objective = get("investment_objective")
+        time_horizon = get("time_horizon")
+        assets_total = get("assets_held_away_total")
+        assets_liquid = get("assets_held_away_liquid")
+        assets_other = get("assets_held_away_other_brokers")
 
         # Dependents
         dependents = self.state.get("dependents") or []
@@ -280,7 +265,7 @@ class MagnusClientIntakeForm(QMainWindow):
                 }
             ]
         ben_lines = [
-            f"{b.get('full_name', 'Not provided')} (DOB: {b.get('dob', 'Not provided')}, Relationship: {b.get('relationship', 'Not provided')}, Allocation: {b.get('allocation', 'Not provided')})"
+            f"{b.get('full_name', 'Not provided')} (DOB: {b.get('dob', 'Not provided')}, Relationship: {b.get('relationship', 'Not provided')}, SSN: {b.get('beneficiary_ssn', 'Not provided')}, Allocation: {b.get('allocation', 'Not provided')})"
             for b in beneficiaries
         ]
         beneficiaries_html = "<br/>".join(ben_lines) if ben_lines else "Not provided"
@@ -318,7 +303,8 @@ class MagnusClientIntakeForm(QMainWindow):
                 f"<b>SSN:</b> {get('spouse_ssn')}<br/>"
                 f"<b>Employment Status:</b> {get('spouse_employment_status')}<br/>"
                 f"<b>Employer:</b> {get('spouse_employer_name')}<br/>"
-                f"<b>Job Title:</b> {get('spouse_job_title')}"
+                f"<b>Job Title:</b> {get('spouse_job_title')}<br/>"
+                f"<b>Phone:</b> {get('spouse_phone')}"
             )
         else:
             spouse_html = "[Not applicable]"
@@ -357,11 +343,13 @@ class MagnusClientIntakeForm(QMainWindow):
           <p>
             <b>Education:</b> {get('education')}<br/>
             <b>Risk Tolerance:</b> {get('risk_tolerance')}<br/>
-            <b>Investment Purpose:</b> {purposes}<br/>
-            <b>Investment Objectives:</b><br/>{objectives}<br/>
+            <b>Time Horizon:</b> {time_horizon}<br/>
+            <b>Investment Objective:</b> {investment_objective}<br/>
             <b>Est. Net Worth:</b> {get('est_net_worth')}<br/>
             <b>Est. Liquid Net Worth:</b> {get('est_liquid_net_worth')}<br/>
-            <b>Assets Held Away:</b> {get('assets_held_away')}
+            <b>Assets Held Away – Total:</b> {assets_total}<br/>
+            <b>Assets Held Away – Liquid:</b> {assets_liquid}<br/>
+            <b>Assets Held Away – Other Brokerage Firms:</b> {assets_other}
           </p>
 
           <h4>SPOUSE/PARTNER INFORMATION</h4>
@@ -557,6 +545,18 @@ class MagnusClientIntakeForm(QMainWindow):
                 _log(f"Validator error liquid_lte_net: {e}")
                 valid = False
                 invalid_fields.append("Liquid Net Worth vs Net Worth")
+        assets_fields = {
+            "assets_held_away_total",
+            "assets_held_away_liquid",
+            "assets_held_away_other_brokers",
+        }
+        if assets_fields & inputs.keys():
+            for msg in assets_held_away_errors(merged):
+                valid = False
+                invalid_fields.append(msg)
+        for msg in spouse_phone_errors(merged):
+            valid = False
+            invalid_fields.append(msg)
         if "beneficiaries" in inputs:
             try:
                 if not VALIDATORS["beneficiaries_sum_100"]("", merged):
@@ -567,33 +567,9 @@ class MagnusClientIntakeForm(QMainWindow):
                 _log(f"Validator error beneficiaries_sum_100: {e}")
                 valid = False
                 invalid_fields.append("Beneficiaries Allocation Total")
-        obj_fields = {
-            "rank_trading_profits",
-            "rank_speculation",
-            "rank_capital_appreciation",
-            "rank_income",
-            "rank_preservation",
-        }
-        if obj_fields.issubset(inputs.keys()):
-            try:
-                if not VALIDATORS["objective_ranks_unique"]("", merged):
-                    valid = False
-                    invalid_fields.append("Investment Objective Rankings")
-            except Exception as e:
-                from .app import _log
-                _log(f"Validator error objective_ranks_unique: {e}")
+            for msg in beneficiaries_ssn_errors(merged.get("beneficiaries") or []):
                 valid = False
-                invalid_fields.append("Investment Objective Rankings")
-        purpose_fields = [
-            "inv_purpose_income",
-            "inv_purpose_growth_income",
-            "inv_purpose_cap_app",
-            "inv_purpose_speculation",
-        ]
-        if any(k in inputs for k in purpose_fields):
-            if not any(merged.get(k) for k in purpose_fields):
-                valid = False
-                invalid_fields.append("Investment Purpose")
+                invalid_fields.append(msg)
 
         meta["next_btn"].setEnabled(True)
         self.last_invalid_fields = invalid_fields

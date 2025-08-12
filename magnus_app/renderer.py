@@ -202,10 +202,13 @@ class PageRenderer:
             elif ftype == "text":
                 widget = QLineEdit()
                 widget.setText(self.state.get(name, ""))
-                if field.get("input_mask") == "ssn":
+                mask = field.get("input_mask")
+                if mask == "ssn":
                     widget.setInputMask("000-00-0000;_")
-                elif field.get("input_mask") == "phone":
+                elif mask == "phone":
                     widget.setInputMask("(000) 000-0000;_")
+                elif isinstance(mask, str):
+                    widget.setInputMask(f"{mask};_")
                 validator_name = field.get("validate")
                 if validator_name == "usd_currency_0_1b":
                     num = parse_usd(widget.text())
@@ -399,10 +402,13 @@ class PageRenderer:
         elif ftype == "text":
             widget = QLineEdit()
             widget.setText(data.get(sub_name, ""))
-            if sub_spec.get("input_mask") == "ssn":
+            mask = sub_spec.get("input_mask")
+            if mask == "ssn":
                 widget.setInputMask("000-00-0000;_")
-            elif sub_spec.get("input_mask") == "phone":
+            elif mask == "phone":
                 widget.setInputMask("(000) 000-0000;_")
+            elif isinstance(mask, str):
+                widget.setInputMask(f"{mask};_")
             validator_name = sub_spec.get("validate")
             if validator_name == "usd_currency_0_1b":
                 num = parse_usd(widget.text())

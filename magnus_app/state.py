@@ -34,6 +34,37 @@ def build_default_state() -> Dict[str, Any]:
     return state
 
 def migrate_state(state: Dict[str, Any]) -> Dict[str, Any]:
+    state = dict(state)
+
+    if "investment_objective" not in state:
+        ranks = state.get("investment_objectives") or {}
+        key_map = {
+            "speculation": "Speculation",
+            "capital_appreciation": "Capital Appreciation",
+            "income": "Income",
+            "growth_and_income": "Growth and Income",
+        }
+        best = None
+        best_rank = None
+        if isinstance(ranks, dict):
+            for k, v in ranks.items():
+                label = key_map.get(k)
+                if label is None:
+                    continue
+                try:
+                    r = int(v)
+                except Exception:
+                    continue
+                if best_rank is None or r < best_rank:
+                    best_rank, best = r, label
+        if best:
+            state["investment_objective"] = best
+        state.pop("investment_objectives", None)
+        state.pop("investment_purpose", None)
+
+    if "assets_held_away_total" not in state and "assets_held_away" in state:
+        state["assets_held_away_total"] = state.pop("assets_held_away")
+
     default = build_default_state()
     for k, v in default.items():
         state.setdefault(k, v)

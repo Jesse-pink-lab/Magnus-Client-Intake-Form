@@ -196,15 +196,18 @@ def percent_0_100(v: str, *_):
         return True
     return parse_percent(v) is not None
 
+ALLOWED_OBJECTIVES = {
+    "Speculation",
+    "Capital Appreciation",
+    "Income",
+    "Growth and Income",
+}
 
-def rank_1_5(v: str, *_):
+
+def investment_objective(v: str, *_):
     if v is None or not str(v).strip():
-        return True
-    try:
-        n = int(v)
-    except Exception:
         return False
-    return 1 <= n <= 5
+    return v in ALLOWED_OBJECTIVES
 
 
 # ===== Cross-field validators (use values dict) =====
@@ -231,20 +234,33 @@ def beneficiaries_sum_100(_v, values: dict):
     return abs(total - 100.0) < 1e-6
 
 
-def objective_ranks_unique(_v, values: dict):
-    keys = [
-        "rank_trading_profits",
-        "rank_speculation",
-        "rank_capital_appreciation",
-        "rank_income",
-        "rank_preservation",
-    ]
-    vals = [values.get(k) for k in keys if str(values.get(k) or "").strip() != ""]
-    try:
-        ints = [int(v) for v in vals]
-    except Exception:
-        return False
-    return len(ints) == len(set(ints))
+def assets_held_away_errors(values: dict) -> List[str]:
+    errors: List[str] = []
+    total = parse_usd(values.get("assets_held_away_total", ""))
+    liquid = parse_usd(values.get("assets_held_away_liquid", ""))
+    other = parse_usd(values.get("assets_held_away_other_brokers", ""))
+    if all(v is not None for v in (total, liquid)) and liquid > total:
+        errors.append("Assets Held Away – Liquid cannot exceed Total")
+    if all(v is not None for v in (total, other)) and other > total:
+        errors.append("Assets Held Away – Other brokers cannot exceed Total")
+    return errors
+
+
+def spouse_phone_errors(values: dict) -> List[str]:
+    if not values.get("no_spouse"):
+        phone = values.get("spouse_phone", "")
+        if not phone_us(phone):
+            return ["Spouse phone number is required and must be valid"]
+    return []
+
+
+def beneficiaries_ssn_errors(items: List[dict]) -> List[str]:
+    errors: List[str] = []
+    for idx, item in enumerate(items, 1):
+        ssn = (item or {}).get("beneficiary_ssn", "")
+        if not ssn_masked(ssn):
+            errors.append(f"Beneficiary {idx}: SSN is required and must be valid")
+    return errors
 
 
 # Exported validator registry
@@ -267,10 +283,9 @@ VALIDATORS.update({
     "year_1900_current": year_1900_current,
     "usd_currency_0_1b": usd_currency_0_1b,
     "percent_0_100": percent_0_100,
-    "rank_1_5": rank_1_5,
     "liquid_lte_net": liquid_lte_net,
     "beneficiaries_sum_100": beneficiaries_sum_100,
-    "objective_ranks_unique": objective_ranks_unique,
+    "investment_objective": investment_objective,
 })
 
 class ValidationError(Exception):

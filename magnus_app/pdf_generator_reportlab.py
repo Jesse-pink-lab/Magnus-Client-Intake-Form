@@ -94,10 +94,13 @@ def save_draft_word(form_data, output_path):
         doc.add_paragraph(f"Education Status: {form_data.get('education_status', '[Not provided]')}")
         doc.add_paragraph(f"Estimated Tax Bracket: {fmt_percent(form_data.get('est_tax_bracket'))}")
         doc.add_paragraph(f"Investment Risk Tolerance: {form_data.get('risk_tolerance', '[Not provided]')}")
-        doc.add_paragraph(f"Investment Objectives: {form_data.get('investment_objectives', '[Not provided]')}")
+        doc.add_paragraph(f"Time Horizon: {form_data.get('time_horizon', '[Not provided]')}")
+        doc.add_paragraph(f"Investment Objective: {form_data.get('investment_objective', '[Not provided]')}")
         doc.add_paragraph(f"Net Worth (excluding primary home): {fmt_usd(form_data.get('est_net_worth'))}")
         doc.add_paragraph(f"Liquid Net Worth: {fmt_usd(form_data.get('est_liquid_net_worth'))}")
-        doc.add_paragraph(f"Assets Held Away: {fmt_usd(form_data.get('assets_held_away'))}")
+        doc.add_paragraph(f"Assets Held Away – Total: {fmt_usd(form_data.get('assets_held_away_total'))}")
+        doc.add_paragraph(f"Assets Held Away – Liquid: {fmt_usd(form_data.get('assets_held_away_liquid'))}")
+        doc.add_paragraph(f"Assets Held Away at Other Brokerage Firms: {fmt_usd(form_data.get('assets_held_away_other_brokers'))}")
         doc.add_paragraph()
         
         # Spouse Information (if applicable)
@@ -109,6 +112,7 @@ def save_draft_word(form_data, output_path):
             doc.add_paragraph(f"Spouse Employment Status: {form_data.get('spouse_employment_status', '[Not provided]')}")
             doc.add_paragraph(f"Spouse Employer Name: {form_data.get('spouse_employer_name', '[Not provided]')}")
             doc.add_paragraph(f"Spouse Occupation/Title: {form_data.get('spouse_job_title', '[Not provided]')}")
+            doc.add_paragraph(f"Spouse Phone: {form_data.get('spouse_phone', '[Not provided]')}")
             doc.add_paragraph()
         else:
             doc.add_heading('Spouse/Partner Information', level=1)
@@ -137,6 +141,7 @@ def save_draft_word(form_data, output_path):
                 doc.add_paragraph(f"  Name: {ben.get('full_name', '[Not provided]')}")
                 doc.add_paragraph(f"  Date of Birth: {ben.get('dob', '[Not provided]')}")
                 doc.add_paragraph(f"  Relationship: {ben.get('relationship', '[Not provided]')}")
+                doc.add_paragraph(f"  SSN: {ben.get('beneficiary_ssn', '[Not provided]')}")
                 doc.add_paragraph(f"  Percentage: {fmt_percent(ben.get('allocation'))}")
         else:
             doc.add_paragraph("No beneficiaries specified")
@@ -253,27 +258,7 @@ def generate_pdf_report(form_data, output_path):
                 return safe(v)
 
         # Normalize and derive fields from application state
-        investment_purposes = []
-        if form_data.get("inv_purpose_income"):
-            investment_purposes.append("Income")
-        if form_data.get("inv_purpose_growth_income"):
-            investment_purposes.append("Growth and Income")
-        if form_data.get("inv_purpose_cap_app"):
-            investment_purposes.append("Capital Appreciation")
-        if form_data.get("inv_purpose_speculation"):
-            investment_purposes.append("Speculation")
-        investment_purpose = ", ".join(investment_purposes)
-
-        objectives_map = [
-            ("rank_trading_profits", "Trading Profits"),
-            ("rank_speculation", "Speculation"),
-            ("rank_capital_appreciation", "Capital Appreciation"),
-            ("rank_income", "Income"),
-            ("rank_preservation", "Preservation of Capital"),
-        ]
-        investment_objective = "\n".join(
-            f"{label}: {form_data.get(key)}" for key, label in objectives_map if form_data.get(key)
-        )
+        investment_objective = form_data.get("investment_objective", "[Not provided]")
 
         dependents = form_data.get("dependents") or []
         if not dependents and any(
@@ -355,26 +340,13 @@ def generate_pdf_report(form_data, output_path):
         content.append(Paragraph(f"Education Status: {form_data.get('education_status', '[Not provided]')}", normal_style))
         content.append(Paragraph(f"Estimated Tax Bracket: {format_percentage(form_data.get('est_tax_bracket'))}", normal_style))
         content.append(Paragraph(f"Investment Risk Tolerance: {form_data.get('risk_tolerance', '[Not provided]')}", normal_style))
-        
-        # Investment Purpose
-        if investment_purpose:
-            content.append(Paragraph("Investment Purpose:", normal_style))
-            for purpose in investment_purpose.split(','):
-                content.append(Paragraph(f"• {purpose.strip()}", normal_style))
-        else:
-            content.append(Paragraph("Investment Purpose: [Not provided]", normal_style))
-        
-        # Investment Objectives
-        if investment_objective:
-            content.append(Paragraph("Investment Objectives:", normal_style))
-            for objective in investment_objective.split('\n'):
-                content.append(Paragraph(f"• {objective}", normal_style))
-        else:
-            content.append(Paragraph("Investment Objectives: [Not provided]", normal_style))
-        
+        content.append(Paragraph(f"Time Horizon: {form_data.get('time_horizon', '[Not provided]')}", normal_style))
+        content.append(Paragraph(f"Investment Objective: {investment_objective}", normal_style))
         content.append(Paragraph(f"Net Worth: {format_money(form_data.get('est_net_worth'))}", normal_style))
         content.append(Paragraph(f"Liquid Net Worth: {format_money(form_data.get('est_liquid_net_worth'))}", normal_style))
-        content.append(Paragraph(f"Assets Held Away: {format_money(form_data.get('assets_held_away'))}", normal_style))
+        content.append(Paragraph(f"Assets Held Away – Total: {format_money(form_data.get('assets_held_away_total'))}", normal_style))
+        content.append(Paragraph(f"Assets Held Away – Liquid: {format_money(form_data.get('assets_held_away_liquid'))}", normal_style))
+        content.append(Paragraph(f"Assets Held Away – At Other Brokerage Firms: {format_money(form_data.get('assets_held_away_other_brokers'))}", normal_style))
         content.append(Spacer(1, 12))
 
         # Spouse Information
@@ -386,6 +358,7 @@ def generate_pdf_report(form_data, output_path):
             content.append(Paragraph(f"Employment Status: {form_data.get('spouse_employment_status', '[Not provided]')}", normal_style))
             content.append(Paragraph(f"Employer Name: {form_data.get('spouse_employer_name', '[Not provided]')}", normal_style))
             content.append(Paragraph(f"Occupation: {form_data.get('spouse_job_title', '[Not provided]')}", normal_style))
+            content.append(Paragraph(f"Phone Number: {form_data.get('spouse_phone', '[Not provided]')}", normal_style))
             content.append(Spacer(1, 12))
 
         # Dependents
@@ -411,12 +384,13 @@ def generate_pdf_report(form_data, output_path):
         # Beneficiaries
         content.append(Paragraph("Beneficiaries", heading_style))
         if beneficiaries:
-            table_data = [["Name", "Date of Birth", "Relationship", "Allocation (%)"]]
+            table_data = [["Name", "Date of Birth", "Relationship", "SSN", "Allocation (%)"]]
             for ben in beneficiaries:
                 table_data.append([
                     ben.get('full_name', 'Not provided') or 'Not provided',
                     ben.get('dob', 'Not provided') or 'Not provided',
                     ben.get('relationship', 'Not provided') or 'Not provided',
+                    ben.get('beneficiary_ssn', 'Not provided') or 'Not provided',
                     format_percentage(ben.get('allocation')),
                 ])
             table = Table(table_data, hAlign='LEFT')
