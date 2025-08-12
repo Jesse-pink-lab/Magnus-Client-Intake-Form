@@ -579,14 +579,6 @@ class FormValidator:
             self.add_error("Liquid Net Worth", "Please enter a valid numeric value")
             valid = False
         
-        # Validate asset breakdown if included
-        if data.get("include_breakdown", False):
-            breakdown = data.get("asset_breakdown", {})
-            if breakdown:
-                percentages = [v for v in breakdown.values() if isinstance(v, (int, float))]
-                if not self.validate_percentage_total("Asset Breakdown", percentages):
-                    valid = False
-        
         return valid
 
     def validate_annual_income(self, field_name: str, income: str) -> bool:
