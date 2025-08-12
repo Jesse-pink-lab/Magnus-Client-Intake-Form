@@ -23,41 +23,6 @@ def create_page(form):
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
 
-        # Asset Breakdown (optional)
-        include_breakdown_checkbox = QCheckBox("Include Asset Breakdown")
-        include_breakdown_checkbox.setObjectName("include_breakdown")
-        include_breakdown_checkbox.stateChanged.connect(form.on_include_breakdown_changed)
-        content_layout.addWidget(include_breakdown_checkbox)
-
-        form.asset_breakdown_group = QGroupBox("Asset Breakdown")
-        form.asset_breakdown_group.setObjectName("asset_breakdown_group")
-        form.asset_breakdown_group.setVisible(False)
-
-        breakdown_layout = QVBoxLayout(form.asset_breakdown_group)
-        form.asset_breakdown_fields = {}
-
-        asset_types = [
-            "Stocks", "Bonds", "Mutual Funds", "ETFs", "UITs", 
-            "Annuities (Fixed)", "Annuities (Variable)", "Options", 
-            "Commodities", "Alternative Investments", "Limited Partnerships", 
-            "Variable Contracts", "Short-Term", "Other"
-        ]
-
-        for asset_type in asset_types:
-            h_layout = QHBoxLayout()
-            label = QLabel(f"{asset_type} (%):")
-            spin_box = QSpinBox()
-            spin_box.setObjectName(f"asset_breakdown_{asset_type.lower().replace(' ', '_').replace('(', '').replace(')', '')}")
-            spin_box.setRange(0, 100)
-            spin_box.setSuffix("%")
-
-            form.asset_breakdown_fields[asset_type] = spin_box
-            h_layout.addWidget(label)
-            h_layout.addWidget(spin_box)
-            breakdown_layout.addLayout(h_layout)
-
-        content_layout.addWidget(form.asset_breakdown_group)
-
         # Investment Experience by Asset Type
         experience_label = QLabel("Investment Experience by Asset Type:")
         experience_label.setStyleSheet("font-weight: bold; margin-top: 10px;")

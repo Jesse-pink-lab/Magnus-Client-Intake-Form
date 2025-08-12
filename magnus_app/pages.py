@@ -433,12 +433,6 @@ PAGES: List[Dict[str, Any]] = [
                 'title': 'Asset Overview',
                 'fields': [
                     {
-                        'name': 'include_breakdown',
-                        'type': 'checkbox',
-                        'label': 'Include Asset Breakdown',
-                        'required': False,
-                    },
-                    {
                         'name': 'outside_broker_assets',
                         'type': 'checkbox',
                         'label': 'Do you have assets with an outside broker firm?',

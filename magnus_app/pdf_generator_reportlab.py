@@ -34,7 +34,7 @@ except ImportError:
     print("ERROR: python-docx is not installed. Please run: pip install python-docx")
     sys.exit(1)
 
-from .validation import parse_usd, format_usd, parse_percent, format_percent
+from .validation import parse_usd, format_usd, parse_percent, format_percent, parse_iso_date
 
 
 def fmt_usd(val):
@@ -45,6 +45,11 @@ def fmt_usd(val):
 def fmt_percent(val):
     num = parse_percent(val)
     return format_percent(num) if num is not None else "[Not provided]"
+
+
+def fmt_date(val):
+    d = parse_iso_date(val) if isinstance(val, str) else None
+    return d.strftime("%Y-%m-%d") if d else "[Not provided]"
 
 
 class NumberedCanvas(canvas.Canvas):
@@ -165,12 +170,12 @@ def save_draft_word(form_data, output_path):
             for i, dep in enumerate(dependents):
                 doc.add_paragraph(f"Dependent {i+1}:")
                 doc.add_paragraph(f"  Name: {dep.get('full_name', '[Not provided]')}")
-                doc.add_paragraph(f"  Date of Birth: {dep.get('dob', '[Not provided]')}")
+                doc.add_paragraph(f"  Date of Birth: {fmt_date(dep.get('dob'))}")
                 doc.add_paragraph(f"  Relationship: {dep.get('relationship', '[Not provided]')}")
         else:
             doc.add_paragraph("No dependents specified")
         doc.add_paragraph()
-        
+
         # Beneficiaries Information
         doc.add_heading('Beneficiaries Information', level=1)
         beneficiaries = form_data.get("beneficiaries", [])
@@ -178,21 +183,12 @@ def save_draft_word(form_data, output_path):
             for i, ben in enumerate(beneficiaries):
                 doc.add_paragraph(f"Beneficiary {i+1}:")
                 doc.add_paragraph(f"  Name: {ben.get('full_name', '[Not provided]')}")
-                doc.add_paragraph(f"  Date of Birth: {ben.get('dob', '[Not provided]')}")
+                doc.add_paragraph(f"  Date of Birth: {fmt_date(ben.get('dob'))}")
                 doc.add_paragraph(f"  Relationship: {ben.get('relationship', '[Not provided]')}")
                 doc.add_paragraph(f"  SSN: {ben.get('beneficiary_ssn', '[Not provided]')}")
                 doc.add_paragraph(f"  Percentage: {fmt_percent(ben.get('allocation'))}")
         else:
             doc.add_paragraph("No beneficiaries specified")
-        doc.add_paragraph()
-        
-        # Asset Breakdown
-        doc.add_heading('Asset Breakdown', level=1)
-        asset_types = ["Stocks", "Bonds", "Mutual Funds", "ETFs", "Options", "Futures", "Short-Term", "Other"]
-        for asset_type in asset_types:
-            field_name = f"asset_breakdown_{asset_type.lower().replace(' ', '_')}"
-            value = form_data.get(field_name)
-            doc.add_paragraph(f"{asset_type}: {value}%" if value else f"{asset_type}: [Not provided]")
         doc.add_paragraph()
         
         # Investment Experience
@@ -411,19 +407,25 @@ def generate_pdf_report(form_data, output_path):
         ])
 
         dependents = form_data.get("dependents") or []
-        dep_rows = [[d.get("full_name"), d.get("dob"), d.get("relationship")] for d in dependents]
+        dep_rows = [[d.get("full_name"), fmt_date(d.get("dob")), d.get("relationship")] for d in dependents]
         add_table_section("Dependents", ["Name", "DOB", "Relationship"], dep_rows)
 
         beneficiaries = form_data.get("beneficiaries") or []
-        ben_rows = [[b.get("full_name"), b.get("beneficiary_ssn"), fmt_percent(b.get("allocation"))] for b in beneficiaries]
-        add_table_section("Beneficiaries", ["Name", "SSN", "Allocation"], ben_rows)
-
-        asset_types = ["Stocks", "Bonds", "Mutual Funds", "ETFs", "Options", "Futures", "Short-Term", "Other"]
-        asset_rows = []
-        for asset in asset_types:
-            key = f"asset_breakdown_{asset.lower().replace(' ', '_').replace('-', '_')}"
-            asset_rows.append([asset, fmt_percent(form_data.get(key))])
-        add_table_section("Asset Breakdown", ["Asset", "Percentage"], asset_rows)
+        ben_rows = [
+            [
+                b.get("full_name"),
+                fmt_date(b.get("dob")),
+                b.get("beneficiary_ssn"),
+                fmt_percent(b.get("allocation")),
+            ]
+            for b in beneficiaries
+        ]
+        add_table_section(
+            "Beneficiaries",
+            ["Name", "DOB", "SSN", "Allocation"],
+            ben_rows,
+            col_widths=[2.5 * inch, 1.5 * inch, 1.5 * inch, 1.0 * inch],
+        )
 
         asset_map = [
             ("Stocks", "stocks"),
