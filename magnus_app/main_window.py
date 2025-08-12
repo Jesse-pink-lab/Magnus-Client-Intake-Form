@@ -507,7 +507,10 @@ class MagnusClientIntakeForm(QMainWindow):
                 if not any(merged.get(k) for k in purpose_fields):
                     valid = False
 
+
         meta["next_btn"].setEnabled(True)
+
+        meta["next_btn"].setEnabled(valid)
         return valid
 
     # ------------------------------------------------------------- SIGNAL --
