@@ -94,6 +94,9 @@ class MagnusClientIntakeForm(QMainWindow):
 
     # ---------------------------------------------------------- NAVIGATION --
     def on_next(self) -> None:
+
+        # Run validation to update field highlighting but always allow navigation
+        self.validate_current_page(self.current_page)
         valid = self.validate_current_page(self.current_page)
         if not valid:
             QMessageBox.warning(
@@ -104,6 +107,7 @@ class MagnusClientIntakeForm(QMainWindow):
                     "You may continue, but please review before submitting."
                 ),
             )
+
         # still inside form pages
         if self.current_page < len(self.pages):
             self.state.update(self.get_current_values(self.current_page))
@@ -510,7 +514,11 @@ class MagnusClientIntakeForm(QMainWindow):
 
         meta["next_btn"].setEnabled(True)
 
+
+        meta["next_btn"].setEnabled(True)
+
         meta["next_btn"].setEnabled(valid)
+
         return valid
 
     # ------------------------------------------------------------- SIGNAL --
