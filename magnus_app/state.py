@@ -65,6 +65,20 @@ def migrate_state(state: Dict[str, Any]) -> Dict[str, Any]:
     if "assets_held_away_total" not in state and "assets_held_away" in state:
         state["assets_held_away_total"] = state.pop("assets_held_away")
 
+    aliases = {
+        "trusted_full_name": "tc_full_name",
+        "trusted_relationship": "tc_relationship",
+        "trusted_phone": "tc_phone",
+        "trusted_email": "tc_email",
+        "tcp_full_name": "tc_full_name",
+        "tcp_relationship": "tc_relationship",
+        "tcp_phone": "tc_phone",
+        "tcp_email": "tc_email",
+    }
+    for old, new in aliases.items():
+        if old in state and new not in state:
+            state[new] = state[old]
+
     default = build_default_state()
     for k, v in default.items():
         state.setdefault(k, v)

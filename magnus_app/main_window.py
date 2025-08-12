@@ -335,6 +335,7 @@ class MagnusClientIntakeForm(QMainWindow):
           <p>
             <b>Status:</b> {get('employment_status')}<br/>
             <b>Employer:</b> {get('employer_name')}<br/>
+            <b>Employer Address:</b> {get('employer_address')}<br/>
             <b>Title:</b> {get('job_title')}<br/>
             <b>Years with Employer:</b> {get('years_with_employer')}
           </p>
@@ -366,10 +367,10 @@ class MagnusClientIntakeForm(QMainWindow):
 
           <h4>TRUSTED CONTACT</h4>
           <p>
-            <b>Name:</b> {get('tcp_full_name')}<br/>
-            <b>Relationship:</b> {get('tcp_relationship')}<br/>
-            <b>Phone:</b> {get('tcp_phone')}<br/>
-            <b>Email:</b> {get('tcp_email')}
+            <b>Full Name:</b> {get('tc_full_name')}<br/>
+            <b>Relationship:</b> {get('tc_relationship')}<br/>
+            <b>Phone:</b> {get('tc_phone')}<br/>
+            <b>Email Address:</b> {get('tc_email')}
           </p>
 
           <h4>REGULATORY (highlights)</h4>
