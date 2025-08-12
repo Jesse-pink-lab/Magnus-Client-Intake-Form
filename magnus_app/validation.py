@@ -8,6 +8,66 @@ import re
 from typing import Dict, List, Any, Tuple, Optional, Callable
 from datetime import datetime, date
 
+# ===== Parsing/formatting helpers =====
+def _now():
+    return date.today()
+
+
+def parse_usd(value: str) -> float | None:
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    s = s.replace("$", "").replace(",", "").strip()
+    try:
+        num = float(s)
+    except Exception:
+        return None
+    if num < 0 or num > 1_000_000_000:
+        return None
+    return num
+
+
+def format_usd(num: float) -> str:
+    return f"${num:,.2f}"
+
+
+def parse_percent(value: str) -> float | None:
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    if s.endswith("%"):
+        s = s[:-1].strip()
+    try:
+        num = float(s)
+    except Exception:
+        return None
+    if num < 0 or num > 100:
+        return None
+    return num
+
+
+def format_percent(num: float) -> str:
+    return f"{num:.0f}%"
+
+
+def parse_iso_date(s: str) -> date | None:
+    if not s:
+        return None
+    try:
+        y, m, d = map(int, s.split("-"))
+        return date(y, m, d)
+    except Exception:
+        return None
+
+
+def years_between(d: date, ref: date | None = None) -> float:
+    r = ref or _now()
+    return (r - d).days / 365.25
+
 
 # Standalone validators for the dynamic form system
 
@@ -60,6 +120,133 @@ def iso_date_gte_pep_start(value: str, data: Dict[str, Any]) -> bool:
     return iso_date_gte(value, start)
 
 
+# ===== Field validators (return bool) =====
+NAME_RE = re.compile(r"^[A-Za-z][A-Za-z' -]{1,119}$")
+EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+PHONE_RE = re.compile(r"^\(\d{3}\) \d{3}-\d{4}$")
+SSN_RE = re.compile(r"^\d{3}-\d{2}-\d{4}$")
+YEAR_RE = re.compile(r"^(19\d{2}|20\d{2})$")
+
+
+def person_name(v: str, *_):
+    if v is None or not str(v).strip():
+        return False
+    return bool(NAME_RE.fullmatch(v.strip()))
+
+
+def optional_person_name(v: str, *_):
+    if v is None or not str(v).strip():
+        return True
+    return person_name(v)
+
+
+def email_basic(v: str, *_):
+    if v is None or not str(v).strip():
+        return True
+    return bool(EMAIL_RE.fullmatch(v.strip().lower()))
+
+
+def phone_us(v: str, *_):
+    if v is None or not str(v).strip():
+        return True
+    return bool(PHONE_RE.fullmatch(v.strip()))
+
+
+def ssn_masked(v: str, *_):
+    if v is None or not str(v).strip():
+        return True
+    return bool(SSN_RE.fullmatch(v.strip()))
+
+
+def date_adult(v: str, *_):
+    # Required adult DOB (>=18)
+    d = parse_iso_date(v or "")
+    if not d:
+        return False
+    if d < date(1900, 1, 1) or d > _now():
+        return False
+    return years_between(d) >= 18
+
+
+def date_optional(v: str, *_):
+    if v is None or not str(v).strip():
+        return True
+    d = parse_iso_date(v)
+    if not d:
+        return False
+    return date(1900, 1, 1) <= d <= _now()
+
+
+def year_1900_current(v: str, *_):
+    if v is None or not str(v).strip():
+        return True
+    if not YEAR_RE.fullmatch(v.strip()):
+        return False
+    return int(v) <= _now().year
+
+
+def usd_currency_0_1b(v: str, *_):
+    if v is None or not str(v).strip():
+        return True
+    return parse_usd(v) is not None
+
+
+def percent_0_100(v: str, *_):
+    if v is None or not str(v).strip():
+        return True
+    return parse_percent(v) is not None
+
+
+def rank_1_5(v: str, *_):
+    if v is None or not str(v).strip():
+        return True
+    try:
+        n = int(v)
+    except Exception:
+        return False
+    return 1 <= n <= 5
+
+
+# ===== Cross-field validators (use values dict) =====
+def liquid_lte_net(_v, values: dict):
+    ln = parse_usd(values.get("est_liquid_net_worth", ""))
+    nw = parse_usd(values.get("est_net_worth", ""))
+    if ln is None or nw is None:
+        return True
+    return ln <= nw
+
+
+def beneficiaries_sum_100(_v, values: dict):
+    # Expect repeating group state under canonical key 'beneficiaries' as list[dict]
+    items = values.get("beneficiaries") or []
+    total = 0.0
+    for item in items:
+        p = item.get("allocation") if isinstance(item, dict) else None
+        if p is None or str(p).strip() == "":
+            return False  # required in each beneficiary
+        try:
+            total += float(p)
+        except Exception:
+            return False
+    return abs(total - 100.0) < 1e-6
+
+
+def objective_ranks_unique(_v, values: dict):
+    keys = [
+        "rank_trading_profits",
+        "rank_speculation",
+        "rank_capital_appreciation",
+        "rank_income",
+        "rank_preservation",
+    ]
+    vals = [values.get(k) for k in keys if str(values.get(k) or "").strip() != ""]
+    try:
+        ints = [int(v) for v in vals]
+    except Exception:
+        return False
+    return len(ints) == len(set(ints))
+
+
 # Exported validator registry
 VALIDATORS: Dict[str, Callable[..., bool]] = {
     "iso_date": iso_date,
@@ -68,6 +255,23 @@ VALIDATORS: Dict[str, Callable[..., bool]] = {
     "crd": crd,
     "iso_date>=pep_start": iso_date_gte_pep_start,
 }
+
+VALIDATORS.update({
+    "person_name": person_name,
+    "optional_person_name": optional_person_name,
+    "email_basic": email_basic,
+    "phone_us": phone_us,
+    "ssn_masked": ssn_masked,
+    "date_adult": date_adult,
+    "date_optional": date_optional,
+    "year_1900_current": year_1900_current,
+    "usd_currency_0_1b": usd_currency_0_1b,
+    "percent_0_100": percent_0_100,
+    "rank_1_5": rank_1_5,
+    "liquid_lte_net": liquid_lte_net,
+    "beneficiaries_sum_100": beneficiaries_sum_100,
+    "objective_ranks_unique": objective_ranks_unique,
+})
 
 class ValidationError(Exception):
     """Custom exception for validation errors"""
