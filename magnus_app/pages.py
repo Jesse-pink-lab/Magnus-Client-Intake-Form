@@ -347,9 +347,16 @@ PAGES: List[Dict[str, Any]] = [
                 'title': 'Dependents',
                 'fields': [
                     {
+                        'name': 'no_dependents',
+                        'type': 'checkbox',
+                        'label': 'I do not have dependents',
+                        'required': False,
+                    },
+                    {
                         'name': 'dependents',
                         'type': 'repeating_group',
                         'item_label': 'Dependent',
+                        'show_if': {'no_dependents': False},
                         'fields': [
                             {
                                 'name': 'full_name',
@@ -386,9 +393,16 @@ PAGES: List[Dict[str, Any]] = [
                 'title': 'Beneficiaries',
                 'fields': [
                     {
+                        'name': 'no_beneficiaries',
+                        'type': 'checkbox',
+                        'label': 'I do not wish to list beneficiaries at this time',
+                        'required': False,
+                    },
+                    {
                         'name': 'beneficiaries',
                         'type': 'repeating_group',
                         'item_label': 'Beneficiary',
+                        'show_if': {'no_beneficiaries': False},
                         'fields': [
                             {
                                 'name': 'full_name',
@@ -628,33 +642,45 @@ PAGES: List[Dict[str, Any]] = [
                 'title': 'Trusted Contact Person',
                 'fields': [
                     {
-                        'name': 'tc_full_name',
-                        'type': 'text',
-                        'label': 'Full Legal Name',
+                        'name': 'no_trusted_contact',
+                        'type': 'checkbox',
+                        'label': 'I do not wish to provide a trusted contact person',
                         'required': False,
-                        'validate': 'optional_person_name',
                     },
                     {
-                        'name': 'tc_relationship',
-                        'type': 'text',
-                        'label': 'Relationship to You',
-                        'required': False,
-                        'validate': 'optional_person_name',
-                    },
-                    {
-                        'name': 'tc_phone',
-                        'type': 'text',
-                        'label': 'Phone Number',
-                        'required': False,
-                        'validate': 'phone_us',
-                        'input_mask': 'phone',
-                    },
-                    {
-                        'name': 'tc_email',
-                        'type': 'text',
-                        'label': 'Email Address',
-                        'required': False,
-                        'validate': 'email_basic',
+                        'type': 'group',
+                        'show_if': {'no_trusted_contact': False},
+                        'fields': [
+                            {
+                                'name': 'tc_full_name',
+                                'type': 'text',
+                                'label': 'Full Legal Name',
+                                'required': False,
+                                'validate': 'optional_person_name',
+                            },
+                            {
+                                'name': 'tc_relationship',
+                                'type': 'text',
+                                'label': 'Relationship to You',
+                                'required': False,
+                                'validate': 'optional_person_name',
+                            },
+                            {
+                                'name': 'tc_phone',
+                                'type': 'text',
+                                'label': 'Phone Number',
+                                'required': False,
+                                'validate': 'phone_us',
+                                'input_mask': 'phone',
+                            },
+                            {
+                                'name': 'tc_email',
+                                'type': 'text',
+                                'label': 'Email Address',
+                                'required': False,
+                                'validate': 'email_basic',
+                            },
+                        ],
                     },
                 ],
             }

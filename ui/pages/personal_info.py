@@ -23,6 +23,7 @@ def create_page(form):
     layout.addWidget(QLabel("Date of Birth:"))
     dob_input = QDateEdit()
     dob_input.setObjectName("dob")
+    dob_input.setDisplayFormat("MM/dd/yyyy")
     dob_input.setDate(QDate.currentDate().addYears(-30))
     dob_input.setCalendarPopup(True)
     dob_input.setStyleSheet("""

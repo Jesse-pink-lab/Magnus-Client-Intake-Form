@@ -320,7 +320,7 @@ class PageRenderer:
 
             elif ftype == "date":
                 widget = QDateEdit()
-                widget.setDisplayFormat("yyyy-MM-dd")
+                widget.setDisplayFormat("MM/dd/yyyy")
                 widget.setCalendarPopup(True)
                 val = self.state.get(name, "")
                 if val:
@@ -537,7 +537,7 @@ class PageRenderer:
 
         elif ftype == "date":
             widget = QDateEdit()
-            widget.setDisplayFormat("yyyy-MM-dd")
+            widget.setDisplayFormat("MM/dd/yyyy")
             widget.setCalendarPopup(True)
             val = data.get(sub_name, "")
             if val:
