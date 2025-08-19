@@ -49,7 +49,7 @@ def fmt_percent(val):
 
 def fmt_date(val):
     d = parse_iso_date(val) if isinstance(val, str) else None
-    return d.strftime("%Y-%m-%d") if d else "[Not provided]"
+    return d.strftime("%m/%d/%Y") if d else "[Not provided]"
 
 
 class NumberedCanvas(canvas.Canvas):
@@ -100,7 +100,7 @@ def save_draft_word(form_data, output_path):
         # Personal Information
         doc.add_heading('Personal Information', level=1)
         doc.add_paragraph(f"Full Name: {form_data.get('full_name', '[Not provided]')}")
-        doc.add_paragraph(f"Date of Birth: {form_data.get('dob', '[Not provided]')}")
+        doc.add_paragraph(f"Date of Birth: {fmt_date(form_data.get('dob'))}")
         doc.add_paragraph(f"Social Security Number: {form_data.get('ssn', '[Not provided]')}")
         doc.add_paragraph(f"Citizenship: {form_data.get('citizenship', '[Not provided]')}")
         doc.add_paragraph(f"Marital Status: {form_data.get('marital_status', '[Not provided]')}")
@@ -151,7 +151,7 @@ def save_draft_word(form_data, output_path):
         if not form_data.get("spouse_applicable", False):
             doc.add_heading('Spouse/Partner Information', level=1)
             doc.add_paragraph(f"Spouse Full Name: {form_data.get('spouse_full_name', '[Not provided]')}")
-            doc.add_paragraph(f"Spouse Date of Birth: {form_data.get('spouse_dob', '[Not provided]')}")
+            doc.add_paragraph(f"Spouse Date of Birth: {fmt_date(form_data.get('spouse_dob'))}")
             doc.add_paragraph(f"Spouse SSN: {form_data.get('spouse_ssn', '[Not provided]')}")
             doc.add_paragraph(f"Spouse Employment Status: {form_data.get('spouse_employment_status', '[Not provided]')}")
             doc.add_paragraph(f"Spouse Employer Name: {form_data.get('spouse_employer_name', '[Not provided]')}")
@@ -166,7 +166,9 @@ def save_draft_word(form_data, output_path):
         # Dependents Information
         doc.add_heading('Dependents Information', level=1)
         dependents = form_data.get("dependents", [])
-        if dependents:
+        if form_data.get("no_dependents"):
+            doc.add_paragraph("[Not applicable]")
+        elif dependents:
             for i, dep in enumerate(dependents):
                 doc.add_paragraph(f"Dependent {i+1}:")
                 doc.add_paragraph(f"  Name: {dep.get('full_name', '[Not provided]')}")
@@ -179,7 +181,9 @@ def save_draft_word(form_data, output_path):
         # Beneficiaries Information
         doc.add_heading('Beneficiaries Information', level=1)
         beneficiaries = form_data.get("beneficiaries", [])
-        if beneficiaries:
+        if form_data.get("no_beneficiaries"):
+            doc.add_paragraph("[Not applicable]")
+        elif beneficiaries:
             for i, ben in enumerate(beneficiaries):
                 doc.add_paragraph(f"Beneficiary {i+1}:")
                 doc.add_paragraph(f"  Name: {ben.get('full_name', '[Not provided]')}")
@@ -222,10 +226,13 @@ def save_draft_word(form_data, output_path):
         
         # Trusted Contact Information
         doc.add_heading('Trusted Contact Information', level=1)
-        doc.add_paragraph(f"Full Name: {form_data.get('tc_full_name', '[Not provided]')}")
-        doc.add_paragraph(f"Relationship: {form_data.get('tc_relationship', '[Not provided]')}")
-        doc.add_paragraph(f"Phone Number: {form_data.get('tc_phone', '[Not provided]')}")
-        doc.add_paragraph(f"Email Address: {form_data.get('tc_email', '[Not provided]')}")
+        if form_data.get("no_trusted_contact"):
+            doc.add_paragraph("[Not applicable]")
+        else:
+            doc.add_paragraph(f"Full Name: {form_data.get('tc_full_name', '[Not provided]')}")
+            doc.add_paragraph(f"Relationship: {form_data.get('tc_relationship', '[Not provided]')}")
+            doc.add_paragraph(f"Phone Number: {form_data.get('tc_phone', '[Not provided]')}")
+            doc.add_paragraph(f"Email Address: {form_data.get('tc_email', '[Not provided]')}")
         doc.add_paragraph()
         
         # Regulatory Consent
@@ -248,7 +255,7 @@ def generate_pdf_report(form_data, output_path):
         if not isinstance(form_data, dict):
             raise ValueError("Form data must be a dictionary")
 
-        generated_ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+        generated_ts = datetime.now().strftime("%m/%d/%Y %H:%M")
         doc = SimpleDocTemplate(
             output_path,
             pagesize=letter,
@@ -360,7 +367,7 @@ def generate_pdf_report(form_data, output_path):
 
         add_section("Personal Information", [
             ("Full Name", form_data.get("full_name")),
-            ("Date of Birth", form_data.get("dob")),
+            ("Date of Birth", fmt_date(form_data.get("dob"))),
             ("Social Security Number", form_data.get("ssn")),
             ("Citizenship", form_data.get("citizenship_status")),
             ("Marital Status", form_data.get("marital_status")),
@@ -398,7 +405,7 @@ def generate_pdf_report(form_data, output_path):
 
         add_section("Spouse/Partner Information", [
             ("Full Name", form_data.get("spouse_full_name")),
-            ("Date of Birth", form_data.get("spouse_dob")),
+            ("Date of Birth", fmt_date(form_data.get("spouse_dob"))),
             ("SSN", form_data.get("spouse_ssn")),
             ("Employment Status", form_data.get("spouse_employment_status")),
             ("Employer Name", form_data.get("spouse_employer_name")),
@@ -407,25 +414,31 @@ def generate_pdf_report(form_data, output_path):
         ])
 
         dependents = form_data.get("dependents") or []
-        dep_rows = [[d.get("full_name"), fmt_date(d.get("dob")), d.get("relationship")] for d in dependents]
-        add_table_section("Dependents", ["Name", "DOB", "Relationship"], dep_rows)
+        if form_data.get("no_dependents"):
+            add_section("Dependents", [("Dependents", "[Not applicable]")])
+        else:
+            dep_rows = [[d.get("full_name"), fmt_date(d.get("dob")), d.get("relationship")] for d in dependents]
+            add_table_section("Dependents", ["Name", "DOB", "Relationship"], dep_rows)
 
         beneficiaries = form_data.get("beneficiaries") or []
-        ben_rows = [
-            [
-                b.get("full_name"),
-                fmt_date(b.get("dob")),
-                b.get("beneficiary_ssn"),
-                fmt_percent(b.get("allocation")),
+        if form_data.get("no_beneficiaries"):
+            add_section("Beneficiaries", [("Beneficiaries", "[Not applicable]")])
+        else:
+            ben_rows = [
+                [
+                    b.get("full_name"),
+                    fmt_date(b.get("dob")),
+                    b.get("beneficiary_ssn"),
+                    fmt_percent(b.get("allocation")),
+                ]
+                for b in beneficiaries
             ]
-            for b in beneficiaries
-        ]
-        add_table_section(
-            "Beneficiaries",
-            ["Name", "DOB", "SSN", "Allocation"],
-            ben_rows,
-            col_widths=[2.5 * inch, 1.5 * inch, 1.5 * inch, 1.0 * inch],
-        )
+            add_table_section(
+                "Beneficiaries",
+                ["Name", "DOB", "SSN", "Allocation"],
+                ben_rows,
+                col_widths=[2.5 * inch, 1.5 * inch, 1.5 * inch, 1.0 * inch],
+            )
 
         asset_map = [
             ("Stocks", "stocks"),
@@ -459,7 +472,7 @@ def generate_pdf_report(form_data, output_path):
             ("Exchange", form_data.get("exchange")),
             ("Role/Capacity", form_data.get("role")),
             ("Ownership %", fmt_percent(form_data.get("ownership_pct"))),
-            ("As Of", form_data.get("as_of")),
+            ("As Of", fmt_date(form_data.get("as_of"))),
         ])
 
         add_section("Foreign Financial Accounts", [
@@ -467,7 +480,7 @@ def generate_pdf_report(form_data, output_path):
             ("Country", form_data.get("country")),
             ("Purpose", form_data.get("purpose")),
             ("Source of Funds", form_data.get("source_of_funds")),
-            ("Open Date", form_data.get("open_date")),
+            ("Open Date", fmt_date(form_data.get("open_date"))),
             ("Private Banking Account", form_data.get("private_banking")),
             ("Foreign Bank Account", form_data.get("foreign_bank_acct")),
         ])
@@ -477,8 +490,8 @@ def generate_pdf_report(form_data, output_path):
             ("Country", form_data.get("pep_country")),
             ("Relationship", form_data.get("pep_relationship")),
             ("Title", form_data.get("pep_title")),
-            ("Start Date", form_data.get("pep_start")),
-            ("End Date", form_data.get("pep_end")),
+            ("Start Date", fmt_date(form_data.get("pep_start"))),
+            ("End Date", fmt_date(form_data.get("pep_end"))),
             ("Screening Consent", form_data.get("pep_screening_consent")),
         ])
 
@@ -489,12 +502,15 @@ def generate_pdf_report(form_data, output_path):
             ("Liquid Amount", form_data.get("outside_liquid_amount"), True),
         ])
 
-        add_section("Trusted Contact Information", [
-            ("Full Name", form_data.get("tc_full_name")),
-            ("Relationship", form_data.get("tc_relationship")),
-            ("Phone Number", form_data.get("tc_phone")),
-            ("Email Address", form_data.get("tc_email")),
-        ])
+        if form_data.get("no_trusted_contact"):
+            add_section("Trusted Contact Information", [("Trusted Contact", "[Not applicable]")])
+        else:
+            add_section("Trusted Contact Information", [
+                ("Full Name", form_data.get("tc_full_name")),
+                ("Relationship", form_data.get("tc_relationship")),
+                ("Phone Number", form_data.get("tc_phone")),
+                ("Email Address", form_data.get("tc_email")),
+            ])
 
         add_section("Regulatory Consent", [
             ("Electronic Delivery Consent", form_data.get("ed_consent", "No")),

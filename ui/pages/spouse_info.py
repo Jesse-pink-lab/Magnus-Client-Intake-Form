@@ -30,6 +30,7 @@ def create_page(form):
         layout.addWidget(QLabel("Date of Birth:"))
         spouse_dob_input = QDateEdit()
         spouse_dob_input.setObjectName("spouse_dob")
+        spouse_dob_input.setDisplayFormat("MM/dd/yyyy")
         spouse_dob_input.setDate(QDate.currentDate().addYears(-30))
         spouse_dob_input.setCalendarPopup(True)
         spouse_dob_input.setStyleSheet("""

@@ -33,11 +33,17 @@ from .validation import (
     assets_held_away_errors,
     spouse_phone_errors,
     beneficiaries_ssn_errors,
+    parse_iso_date,
 )
 from .home_page import HomePage
 from .mru import get_mru, touch_mru, remove_from_mru
 
 DRAFT_FILTER = "Magnus Draft (*.mgd)"
+
+
+def fmt_date(val: str | None) -> str:
+    d = parse_iso_date(val or "")
+    return d.strftime("%m/%d/%Y") if d else "Not provided"
 PDF_FILTER = "PDF Files (*.pdf)"
 # PDF generator (optional)
 try:
@@ -245,10 +251,13 @@ class MagnusClientIntakeForm(QMainWindow):
                 }
             ]
         dep_lines = [
-            f"{d.get('full_name', 'Not provided')} (DOB: {d.get('dob', 'Not provided')}, Relationship: {d.get('relationship', 'Not provided')})"
+            f"{d.get('full_name', 'Not provided')} (DOB: {fmt_date(d.get('dob'))}, Relationship: {d.get('relationship', 'Not provided')})"
             for d in dependents
         ]
-        dependents_html = "<br/>".join(dep_lines) if dep_lines else "Not provided"
+        if self.state.get("no_dependents"):
+            dependents_html = "[Not applicable]"
+        else:
+            dependents_html = "<br/>".join(dep_lines) if dep_lines else "Not provided"
 
         # Beneficiaries
         beneficiaries = self.state.get("beneficiaries") or []
@@ -265,10 +274,13 @@ class MagnusClientIntakeForm(QMainWindow):
                 }
             ]
         ben_lines = [
-            f"{b.get('full_name', 'Not provided')} (DOB: {b.get('dob', 'Not provided')}, Relationship: {b.get('relationship', 'Not provided')}, SSN: {b.get('beneficiary_ssn', 'Not provided')}, Allocation: {b.get('allocation', 'Not provided')})"
+            f"{b.get('full_name', 'Not provided')} (DOB: {fmt_date(b.get('dob'))}, Relationship: {b.get('relationship', 'Not provided')}, SSN: {b.get('beneficiary_ssn', 'Not provided')}, Allocation: {b.get('allocation', 'Not provided')})"
             for b in beneficiaries
         ]
-        beneficiaries_html = "<br/>".join(ben_lines) if ben_lines else "Not provided"
+        if self.state.get("no_beneficiaries"):
+            beneficiaries_html = "[Not applicable]"
+        else:
+            beneficiaries_html = "<br/>".join(ben_lines) if ben_lines else "Not provided"
 
         # Investment experience
         asset_map = [
@@ -299,7 +311,7 @@ class MagnusClientIntakeForm(QMainWindow):
         if not self.state.get("no_spouse"):
             spouse_html = (
                 f"<b>Full Name:</b> {get('spouse_full_name')}<br/>"
-                f"<b>Date of Birth:</b> {get('spouse_dob')}<br/>"
+                f"<b>Date of Birth:</b> {fmt_date(self.state.get('spouse_dob'))}<br/>"
                 f"<b>SSN:</b> {get('spouse_ssn')}<br/>"
                 f"<b>Employment Status:</b> {get('spouse_employment_status')}<br/>"
                 f"<b>Employer:</b> {get('spouse_employer_name')}<br/>"
@@ -309,6 +321,16 @@ class MagnusClientIntakeForm(QMainWindow):
         else:
             spouse_html = "[Not applicable]"
 
+        if self.state.get("no_trusted_contact"):
+            trusted_html = "[Not applicable]"
+        else:
+            trusted_html = (
+                f"<b>Full Name:</b> {get('tc_full_name')}<br/>"
+                f"<b>Relationship:</b> {get('tc_relationship')}<br/>"
+                f"<b>Phone:</b> {get('tc_phone')}<br/>"
+                f"<b>Email Address:</b> {get('tc_email')}"
+            )
+
         html = f"""
         <div style="font-family: Segoe UI,Inter,system-ui; color:#111827;">
           <h3>— MAGNUS CLIENT INTAKE FORM — REVIEW —</h3>
@@ -316,7 +338,7 @@ class MagnusClientIntakeForm(QMainWindow):
           <h4>PERSONAL INFORMATION</h4>
           <p>
             <b>Full Name:</b> {get('full_name')}<br/>
-            <b>Date of Birth:</b> {get('dob')}<br/>
+            <b>Date of Birth:</b> {fmt_date(self.state.get('dob'))}<br/>
             <b>SSN:</b> {get('ssn')}<br/>
             <b>Citizenship:</b> {get('citizenship_status')}<br/>
             <b>Marital Status:</b> {get('marital_status')}
@@ -366,12 +388,7 @@ class MagnusClientIntakeForm(QMainWindow):
           <p>{investment_experience}</p>
 
           <h4>TRUSTED CONTACT</h4>
-          <p>
-            <b>Full Name:</b> {get('tc_full_name')}<br/>
-            <b>Relationship:</b> {get('tc_relationship')}<br/>
-            <b>Phone:</b> {get('tc_phone')}<br/>
-            <b>Email Address:</b> {get('tc_email')}
-          </p>
+          <p>{trusted_html}</p>
 
           <h4>REGULATORY (highlights)</h4>
           <p>
@@ -388,7 +405,7 @@ class MagnusClientIntakeForm(QMainWindow):
 
     def _suggest_pdf_name(self) -> str:
         name = self.state.get("full_name") or "Client"
-        date = datetime.date.today().strftime("%Y-%m-%d")
+        date = datetime.date.today().strftime("%m-%d-%Y")
         return f"{name} - Magnus Intake {date}"
 
     def pick_save_pdf_path(self, suggested_name: str) -> str | None:

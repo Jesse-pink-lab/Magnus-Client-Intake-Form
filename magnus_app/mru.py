@@ -21,7 +21,7 @@ def _path() -> str:
     return os.path.join(d, _FILE)
 
 def _now_str() -> str:
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    return datetime.datetime.now().strftime("%m/%d/%Y %H:%M")
 
 def get_mru() -> List[Dict]:
     p = _path()
